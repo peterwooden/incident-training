@@ -1,30 +1,50 @@
 # Incident Training RPG (Cloudflare)
 
-Multiplayer incident-management training game for SaaS teams. A game master creates a room, shares a join code, and players coordinate roles/actions under pressure.
+Consumer-grade multiplayer simulation platform for incident-role training. Players coordinate in Slack while interacting with a role-specific game surface.
 
 ## Stack
 
 - Backend: Cloudflare Workers + Durable Objects + SSE
-- Frontend: React (Vite) intended for Cloudflare Pages
-- Shared contracts: TypeScript package for game/API types
+- Frontend: React (Vite) for Cloudflare Pages
+- Contracts: shared TypeScript package for mode/action/state interfaces
+
+## Core experience
+
+- Facilitator creates a room and shares a room code.
+- Players join with scenario-specific roles.
+- Communication happens out-of-band in Slack.
+- Game UI provides role-specific operational surfaces only.
+
+## Scenarios
+
+- `bomb-defusal`
+  - Asymmetric information between device and manual roles.
+  - Interactive wire and symbol modules.
+  - Time pressure, strike system, and stabilization actions.
+
+- `bushfire-command`
+  - Dynamic town map with progressive fire spread.
+  - Fire, police, and public-information command actions.
+  - Containment vs anxiety balancing under timer pressure.
 
 ## Architecture
 
-- `packages/shared`: interface-first contracts (`RoomState`, actions, modes, requests).
-- `apps/api`: Worker API and `GameRoomDurableObject` room aggregate.
-- `apps/web`: React UI; includes Pages function proxy `functions/api/[[path]].ts`.
+- `packages/shared`
+  - Interface-first domain model (room lifecycle, actions, scenario state/view).
+- `apps/api`
+  - Durable Object room aggregate.
+  - Open/closed mode engine plugins (`GameModeEngine`) for scenario behavior.
+  - Alarm-driven simulation ticks and SSE fanout.
+- `apps/web`
+  - Scenario-rich UI with mode-specific components.
+  - Pages proxy function for `/api` passthrough.
 
-### Core design
+### Design principles
 
-- One Durable Object per room code (`idFromName(roomCode)`) for strong, single-room consistency.
-- Strategy interface (`GameModeEngine`) for extensible game modes.
-- SSE fanout per room for low-latency state updates.
-- Alarm-driven scenario progression for pressure/timed injects.
-
-## Game modes
-
-- `sev-escalation`: trains ordered SEV response execution.
-- `comms-crisis`: trains comms alignment and update discipline.
+- One DO per room (`idFromName(roomCode)`) for strong consistency.
+- Engine registry isolates scenario logic from room orchestration.
+- Role-scoped scenario views enforce communication asymmetry.
+- Core room actor remains stable while new scenarios can be added via plugin.
 
 ## Local development
 
@@ -40,15 +60,15 @@ Run API:
 npm run dev:api
 ```
 
-Run Web:
+Run web app:
 
 ```bash
 npm run dev:web
 ```
 
-Open: `http://localhost:5173`
+Open: `http://127.0.0.1:5173/`
 
-## Validation (executed)
+## Validation
 
 Build:
 
@@ -56,39 +76,31 @@ Build:
 npm run build
 ```
 
-Unit tests:
+Tests:
 
 ```bash
 npm run test
 ```
 
-End-to-end local runtime test (spawns Wrangler dev, creates room, joins, starts, opens SSE, sends action, validates state transition):
+E2E (spawns local Wrangler dev, creates room, joins, starts, opens SSE, performs action):
 
 ```bash
 npm run test:e2e
 ```
 
-## API overview
+## API summary
 
-- `POST /api/rooms` create room (`gmName`, `mode`)
+- `POST /api/rooms` (`gmName`, `mode`)
 - `POST /api/rooms/:code/join`
 - `POST /api/rooms/:code/start`
 - `POST /api/rooms/:code/action`
-- `GET /api/rooms/:code/state`
+- `GET /api/rooms/:code/state?playerId=...`
 - `GET /api/rooms/:code/events?playerId=...` (SSE)
 
-## Cloudflare best-practice alignment
-
-- Durable Objects are used as per-room authoritative state actors.
-- Timed progression uses Durable Object alarms.
-- Streaming updates use Worker streaming primitives (`text/event-stream`).
-- Request router keeps edge entrypoint thin; domain behavior is in mode engines.
-
-References:
+## Cloudflare references
 
 - https://developers.cloudflare.com/durable-objects/
 - https://developers.cloudflare.com/durable-objects/api/base/
 - https://developers.cloudflare.com/durable-objects/api/alarms/
 - https://developers.cloudflare.com/workers/runtime-apis/streams/
 - https://developers.cloudflare.com/workers/examples/server-sent-events/
-- https://developers.cloudflare.com/workers/reference/how-workers-works/

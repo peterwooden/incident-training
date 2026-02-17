@@ -1,11 +1,11 @@
 import type { GameMode } from "@incident/shared";
 import type { GameModeEngine } from "./types";
-import { SevEscalationMode } from "./sevEscalationMode";
-import { CommsCrisisMode } from "./commsCrisisMode";
+import { BombDefusalMode } from "./bombDefusalMode";
+import { BushfireCommandMode } from "./bushfireCommandMode";
 
 const ENGINES: Record<GameMode, GameModeEngine> = {
-  "sev-escalation": new SevEscalationMode(),
-  "comms-crisis": new CommsCrisisMode(),
+  "bomb-defusal": new BombDefusalMode(),
+  "bushfire-command": new BushfireCommandMode(),
 };
 
 export function getModeEngine(mode: GameMode): GameModeEngine {

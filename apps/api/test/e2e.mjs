@@ -41,7 +41,7 @@ async function run() {
     const createResp = await fetch(`${BASE_URL}/api/rooms`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ gmName: "GM", mode: "sev-escalation" }),
+      body: JSON.stringify({ gmName: "GM", mode: "bomb-defusal" }),
     });
     if (!createResp.ok) {
       throw new Error(`create room failed: ${createResp.status}`);
@@ -89,7 +89,7 @@ async function run() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         playerId: joined.playerId,
-        actionType: "acknowledge_incident",
+        actionType: "bomb_stabilize_panel",
       }),
     });
     if (!ackResp.ok) {
@@ -98,8 +98,8 @@ async function run() {
 
     const stateResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/state`);
     const statePayload = await stateResp.json();
-    if (statePayload.state.objectives[0].completed !== true) {
-      throw new Error("expected first objective to be completed after acknowledge action");
+    if (statePayload.state.mode !== "bomb-defusal") {
+      throw new Error("expected bomb mode in room state");
     }
 
     console.log("E2E passed");

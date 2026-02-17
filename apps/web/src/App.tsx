@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import type { RoomState } from "@incident/shared";
+import type { RoomView } from "@incident/shared";
 import type { RoomContextValue, Session } from "./types";
 import { HomePage } from "./pages/HomePage";
 import { RoomPage } from "./pages/RoomPage";
@@ -8,7 +8,7 @@ import { RoomContext } from "./context";
 
 export default function App() {
   const [session, setSessionState] = useState<Session | undefined>(undefined);
-  const [state, setState] = useState<RoomState | undefined>(undefined);
+  const [state, setState] = useState<RoomView | undefined>(undefined);
 
   const value = useMemo<RoomContextValue>(
     () => ({

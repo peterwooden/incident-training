@@ -85,7 +85,12 @@ export async function handleHttp(request: Request, env: Env): Promise<Response> 
   }
 
   if (request.method === "GET" && action === "state") {
-    return stub.fetch("https://room/state");
+    const playerId = url.searchParams.get("playerId");
+    const target = new URL("https://room/state");
+    if (playerId) {
+      target.searchParams.set("playerId", playerId);
+    }
+    return stub.fetch(target.toString());
   }
 
   if (request.method === "GET" && action === "events") {

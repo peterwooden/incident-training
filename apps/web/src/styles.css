@@ -1,7 +1,13 @@
 :root {
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  color: #15212f;
-  background: radial-gradient(circle at top right, #d4f4e5, #f7f2de 60%, #f4d8ce);
+  --ink: #f2efe8;
+  --bg-1: #0f1827;
+  --bg-2: #2b1e22;
+  --accent: #f46f4d;
+  --accent-2: #fbc65f;
+  --good: #7ad596;
+  --bad: #ff6e6e;
+  --muted: #c9c6be;
+  font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
 }
 
 * {
@@ -10,63 +16,210 @@
 
 body {
   margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 10% 10%, #38496f55, transparent 40%),
+    radial-gradient(circle at 90% 20%, #8a3f2e44, transparent 45%),
+    linear-gradient(130deg, var(--bg-1), var(--bg-2));
 }
 
-.page {
+button,
+input,
+select {
+  font: inherit;
+}
+
+.landing,
+.scenario-page {
   min-height: 100vh;
-  padding: 1.5rem;
+  padding: 1.25rem;
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(2px);
-  border: 1px solid #1f3a4d22;
-  border-radius: 14px;
+  background: linear-gradient(165deg, #1e2535ee, #25202dee);
+  border: 1px solid #ffffff1f;
+  border-radius: 16px;
+  box-shadow: 0 22px 35px #00000040;
   padding: 1rem;
-  box-shadow: 0 8px 20px #1f3a4d18;
+}
+
+.hero {
+  grid-column: 1 / -1;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent-2);
+  font-size: 0.76rem;
+  margin: 0 0 0.3rem;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
+}
+
+.hint {
+  color: var(--muted);
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.mode-card {
+  padding: 0.8rem;
+  border-radius: 12px;
+  border: 1px solid #ffffff20;
+  background: #ffffff08;
+}
+
+.mode-card.active {
+  outline: 2px solid var(--accent-2);
+}
+
+button,
+input,
+select {
+  width: 100%;
+  padding: 0.6rem;
+  margin-top: 0.22rem;
+  margin-bottom: 0.7rem;
+  border-radius: 10px;
+  border: 1px solid #ffffff2a;
 }
 
 input,
-select,
-button {
-  width: 100%;
-  margin-top: 0.25rem;
-  margin-bottom: 0.8rem;
-  padding: 0.55rem;
-  border-radius: 8px;
-  border: 1px solid #1f3a4d55;
+select {
+  background: #0f1624;
+  color: var(--ink);
 }
 
 button {
   cursor: pointer;
-  background: #145a44;
+  background: linear-gradient(90deg, var(--accent), #d7502e);
   color: #fff;
   font-weight: 600;
+  border: none;
+}
+
+button.secondary {
+  background: #253752;
 }
 
 button:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  opacity: 0.6;
 }
 
-.actions {
+.hud {
+  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.6rem;
+  gap: 1rem;
+  grid-template-columns: 2fr 1fr;
 }
 
-ul {
+.hud-stats {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+}
+
+.tone-good {
+  color: var(--good);
+}
+
+.tone-live {
+  color: var(--accent-2);
+}
+
+.tone-bad {
+  color: var(--bad);
+}
+
+.meter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-bottom: 0.8rem;
+}
+
+.wires,
+.symbols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.5rem;
+}
+
+.wire {
+  text-transform: capitalize;
+  border: 1px solid #ffffff1c;
+}
+
+.wire-red { background: linear-gradient(90deg, #6f1b1b, #a72929); }
+.wire-blue { background: linear-gradient(90deg, #16365d, #2a5e96); }
+.wire-yellow { background: linear-gradient(90deg, #7a5d1a, #b5902d); }
+.wire-white { background: linear-gradient(90deg, #6e6e6e, #a4a4a4); color: #111; }
+.wire-black { background: linear-gradient(90deg, #101010, #2c2c2c); }
+
+.wire.cut {
+  filter: grayscale(1);
+}
+
+.symbol-btn {
+  background: #273547;
+}
+
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.7rem;
+}
+
+.map-cell {
+  border-radius: 12px;
+  padding: 0.65rem;
+  border: 1px solid #ffffff28;
+  animation: pulse 2.8s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.01); }
+  100% { transform: scale(1); }
+}
+
+.cell-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(60px, 1fr));
+  gap: 0.32rem;
+}
+
+.timeline-card ul,
+.clue-card ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.45rem;
 }
 
 .error {
-  color: #8b0000;
+  color: var(--bad);
   font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .hud {
+    grid-template-columns: 1fr;
+  }
 }

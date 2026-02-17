@@ -1,8 +1,9 @@
 import type {
   ActionRequest,
   CreateRoomRequest,
+  IncidentRole,
   JoinRoomRequest,
-  RoomState,
+  RoomView,
   StartGameRequest,
 } from "@incident/shared";
 
@@ -18,7 +19,8 @@ export async function createRoom(body: CreateRoomRequest) {
     joinUrl: string;
     gmPlayerId: string;
     gmSecret: string;
-    state: RoomState;
+    state: RoomView;
+    roleOptions: IncidentRole[];
   }>;
 }
 
@@ -29,7 +31,7 @@ export async function joinRoom(roomCode: string, body: JoinRoomRequest) {
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`Join room failed: ${resp.status}`);
-  return resp.json() as Promise<{ playerId: string; state: RoomState }>;
+  return resp.json() as Promise<{ playerId: string; state: RoomView; roleOptions: IncidentRole[] }>;
 }
 
 export async function startRoom(roomCode: string, body: StartGameRequest) {
@@ -39,7 +41,7 @@ export async function startRoom(roomCode: string, body: StartGameRequest) {
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`Start room failed: ${resp.status}`);
-  return resp.json() as Promise<{ state: RoomState }>;
+  return resp.json() as Promise<{ state: RoomView }>;
 }
 
 export async function sendAction(roomCode: string, body: ActionRequest) {
@@ -49,17 +51,17 @@ export async function sendAction(roomCode: string, body: ActionRequest) {
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`Action failed: ${resp.status}`);
-  return resp.json() as Promise<{ state: RoomState }>;
+  return resp.json() as Promise<{ state: RoomView }>;
 }
 
-export function subscribeToRoom(roomCode: string, playerId: string, onState: (state: RoomState) => void) {
+export function subscribeToRoom(roomCode: string, playerId: string, onState: (state: RoomView) => void) {
   const eventSource = new EventSource(
     `/api/rooms/${encodeURIComponent(roomCode)}/events?playerId=${encodeURIComponent(playerId)}`,
   );
 
   eventSource.onmessage = (event) => {
     try {
-      const payload = JSON.parse(event.data) as { type: string; state?: RoomState };
+      const payload = JSON.parse(event.data) as { type: string; state?: RoomView };
       if (payload.type === "snapshot" && payload.state) {
         onState(payload.state);
       }

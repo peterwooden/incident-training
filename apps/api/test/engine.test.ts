@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { RoomState } from "@incident/shared";
-import { SevEscalationMode } from "../src/engine/sevEscalationMode";
-import { CommsCrisisMode } from "../src/engine/commsCrisisMode";
+import { BombDefusalMode } from "../src/engine/bombDefusalMode";
+import { BushfireCommandMode } from "../src/engine/bushfireCommandMode";
 
 function baseState(mode: RoomState["mode"]): RoomState {
-  const engine = mode === "sev-escalation" ? new SevEscalationMode() : new CommsCrisisMode();
+  const engine = mode === "bomb-defusal" ? new BombDefusalMode() : new BushfireCommandMode();
   return {
     roomCode: "AAA-BBB",
     mode,
@@ -13,48 +13,44 @@ function baseState(mode: RoomState["mode"]): RoomState {
     startedAtEpochMs: Date.now(),
     pressure: 20,
     score: 0,
-    players: [],
+    players: [{ id: "p1", name: "One", role: "Observer", isGameMaster: false }],
     objectives: engine.initObjectives(),
     timeline: [],
     publicSummary: engine.initSummary(),
+    scenario: engine.initScenario(),
     gmSecret: "secret",
   };
 }
 
-describe("SevEscalationMode", () => {
-  it("rewards correct sequence", () => {
-    const mode = new SevEscalationMode();
-    const state = baseState("sev-escalation");
+describe("BombDefusalMode", () => {
+  it("decrements timer on tick", () => {
+    const mode = new BombDefusalMode();
+    const state = baseState("bomb-defusal");
 
-    const mutation = mode.onAction(
-      state,
-      { type: "acknowledge_incident", playerId: "p1" },
-      Date.now(),
-    );
+    const before = state.scenario.type === "bomb-defusal" ? state.scenario.timerSec : 0;
+    const mutation = mode.onTick(state, Date.now());
+    const after = mutation.replaceScenario;
 
-    expect(mutation.scoreDelta).toBeGreaterThan(0);
-    expect(mutation.markObjectiveIdsComplete?.length).toBe(1);
-  });
-
-  it("penalizes out of sequence", () => {
-    const mode = new SevEscalationMode();
-    const state = baseState("sev-escalation");
-
-    const mutation = mode.onAction(state, { type: "stabilize_service", playerId: "p1" }, Date.now());
-
-    expect(mutation.scoreDelta).toBeLessThan(0);
-    expect(mutation.pressureDelta).toBeGreaterThan(0);
+    expect(after?.type).toBe("bomb-defusal");
+    if (after?.type === "bomb-defusal") {
+      expect(after.timerSec).toBeLessThan(before);
+    }
   });
 });
 
-describe("CommsCrisisMode", () => {
-  it("fails after timeout", () => {
-    const mode = new CommsCrisisMode();
-    const state = baseState("comms-crisis");
-    state.startedAtEpochMs = Date.now() - 9 * 60000;
+describe("BushfireCommandMode", () => {
+  it("deploy action improves containment opportunity", () => {
+    const mode = new BushfireCommandMode();
+    const state = baseState("bushfire-command");
+    const firstCell = state.scenario.type === "bushfire-command" ? state.scenario.cells[0] : undefined;
 
-    const mutation = mode.onTick(state, Date.now());
+    const mutation = mode.onAction(
+      state,
+      { type: "bushfire_deploy_fire_crew", playerId: "p1", payload: { cellId: firstCell?.id ?? "cell_1" } },
+      Date.now(),
+    );
 
-    expect(mutation.status).toBe("failed");
+    expect(mutation.scoreDelta).toBeGreaterThanOrEqual(0);
+    expect(mutation.replaceScenario?.type).toBe("bushfire-command");
   });
 });
