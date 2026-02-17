@@ -1,0 +1,20 @@
+0 verbose cli /Users/peterwooden/.n/bin/node /Users/peterwooden/.n/lib/node_modules/npm/bin/npm-cli.js
+1 info using npm@11.6.2
+2 info using node@v25.1.0
+3 silly config load:file:/Users/peterwooden/.n/lib/node_modules/npm/npmrc
+4 info config found workspace root at /Users/peterwooden/incident-training-rpg
+5 silly config load:file:/Users/peterwooden/incident-training-rpg/.npmrc
+6 silly config load:file:/Users/peterwooden/incident-training-rpg/apps/api/.npmrc
+7 silly config load:file:/Users/peterwooden/.n/etc/npmrc
+8 verbose title npm exec wrangler dev src/index.ts --local --port 8787
+9 verbose argv "exec" "--" "wrangler" "dev" "src/index.ts" "--local" "--port" "8787"
+10 verbose logfile logs-max:10 dir:/Users/peterwooden/incident-training-rpg/apps/api/.npm/_logs/2026-02-17T11_44_51_513Z-
+11 verbose logfile /Users/peterwooden/incident-training-rpg/apps/api/.npm/_logs/2026-02-17T11_44_51_513Z-debug-0.log
+12 silly logfile done cleaning log files
+13 http fetch GET https://registry.npmjs.org/npm attempt 1 failed with ENOTFOUND
+14 verbose cwd /Users/peterwooden/incident-training-rpg/apps/api
+15 verbose os Darwin 25.2.0
+16 verbose node v25.1.0
+17 verbose npm  v11.6.2
+18 verbose exit 1
+19 verbose code 1

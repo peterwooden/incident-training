@@ -1,0 +1,32 @@
+import { useMemo, useState } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import type { RoomState } from "@incident/shared";
+import type { RoomContextValue, Session } from "./types";
+import { HomePage } from "./pages/HomePage";
+import { RoomPage } from "./pages/RoomPage";
+import { RoomContext } from "./context";
+
+export default function App() {
+  const [session, setSessionState] = useState<Session | undefined>(undefined);
+  const [state, setState] = useState<RoomState | undefined>(undefined);
+
+  const value = useMemo<RoomContextValue>(
+    () => ({
+      session,
+      setSession: (next) => setSessionState(next),
+      state,
+      setState,
+    }),
+    [session, state],
+  );
+
+  return (
+    <RoomContext.Provider value={value}>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/room/:roomCode" element={<RoomPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </RoomContext.Provider>
+  );
+}

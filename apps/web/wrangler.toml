@@ -1,0 +1,8 @@
+name = "incident-training-web"
+compatibility_date = "2025-02-01"
+
+pages_build_output_dir = "dist"
+
+[[services]]
+binding = "GAME_API"
+service = "incident-training-api"

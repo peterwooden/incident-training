@@ -1,0 +1,22 @@
+{
+  "name": "incident-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev src/index.ts --local --port 8787",
+    "build": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "node test/e2e.mjs"
+  },
+  "dependencies": {
+    "@incident/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.6.4",
+    "@cloudflare/workers-types": "^4.20250214.0",
+    "typescript": "^5.8.2",
+    "vitest": "^2.1.8",
+    "wrangler": "^4.9.0"
+  }
+}

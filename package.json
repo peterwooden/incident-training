@@ -1,0 +1,19 @@
+{
+  "name": "incident-training-rpg",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.13.5"
+  },
+  "scripts": {
+    "build": "npm run --workspaces build",
+    "test": "npm run --workspaces test",
+    "test:e2e": "npm run -w apps/api test:e2e",
+    "dev:api": "npm run -w apps/api dev",
+    "dev:web": "npm run -w apps/web dev"
+  }
+}

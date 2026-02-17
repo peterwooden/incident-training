@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "incident-training-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-02-01",
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "GameRoomDurableObject",
+        "name": "GAME_ROOM"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["GameRoomDurableObject"]
+    }
+  ]
+}
