@@ -2,4 +2,9 @@ node_modules
 dist
 .wrangler
 .DS_Store
+.npm
+*.tsbuildinfo
+apps/web/src/**/*.js
+apps/web/functions/**/*.js
+packages/shared/src/*.js
  
