@@ -1,10 +1,13 @@
 import type { PoliceOpsPayload } from "@incident/shared";
+import { LayeredScene, RimLight, ShadowCaster, SpecularOverlay, useAmbientMotionClock } from "../../visuals/core";
 
 interface PoliceOpsPanelProps {
   payload: PoliceOpsPayload;
 }
 
 export function PoliceOpsPanel({ payload }: PoliceOpsPanelProps) {
+  const { pulse } = useAmbientMotionClock({ loopMs: 2300, paused: false });
+
   return (
     <section className="scene-panel police-ops-panel visual-heavy">
       <header className="panel-chip-row">
@@ -15,7 +18,11 @@ export function PoliceOpsPanel({ payload }: PoliceOpsPanelProps) {
         </div>
       </header>
 
-      <div className="visual-stage ops-stage">
+      <LayeredScene className="visual-stage ops-stage cinematic-depth" depthPx={4} perspectivePx={760}>
+        <ShadowCaster blurPx={14} opacity={0.32} offsetY={6} />
+        <RimLight color="#ffd6c4" intensity={0.18 + pulse * 0.12} />
+        <SpecularOverlay intensity={0.14} angleDeg={-12} />
+
         <div className="lane-stack">
           <div className="lane-card">
             <h4>Evac Corridors</h4>
@@ -35,7 +42,7 @@ export function PoliceOpsPanel({ payload }: PoliceOpsPanelProps) {
             </div>
           </div>
         </div>
-      </div>
+      </LayeredScene>
     </section>
   );
 }

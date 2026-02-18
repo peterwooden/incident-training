@@ -34,6 +34,28 @@ for (const file of gameplayPanels) {
     issues.push(`${file}: dense list markup (<ul>/<ol>) is not allowed in live gameplay panels`);
   }
 
+  if (!source.includes("visual-stage")) {
+    issues.push(`${file}: gameplay panel must include visual-stage container`);
+  }
+
+  if (!source.includes("LayeredScene")) {
+    issues.push(`${file}: gameplay panel must use LayeredScene for layered rendering`);
+  }
+
+  if (!source.includes("useAmbientMotionClock")) {
+    issues.push(`${file}: gameplay panel is missing ambient animation hook`);
+  }
+
+  const isInteractivePanel = source.includes("onPointer") || source.includes("onKeyDown");
+  const hasCursorAffordance =
+    source.includes("cursor:") ||
+    source.includes("interaction-hit") ||
+    source.includes("radial-tool") ||
+    source.includes("manual-hotspot");
+  if (isInteractivePanel && !hasCursorAffordance) {
+    issues.push(`${file}: gameplay panel is missing explicit cursor/hover affordance`);
+  }
+
   const buttons = [...source.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/g)];
   for (const match of buttons) {
     const normalized = match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();

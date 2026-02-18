@@ -31,6 +31,7 @@ import { PublicInfoPanel } from "../panels/bushfire/PublicInfoPanel";
 import { DebriefReplayPanel } from "../gm/DebriefReplayPanel";
 import { GmOrchestratorPanel } from "../gm/GmOrchestratorPanel";
 import { PanelDashboard } from "./PanelDashboard";
+import { useReducedFx } from "../visuals/core";
 
 const REQUIRED_ROLES: Record<RoomView["mode"], IncidentRole[]> = {
   "bomb-defusal": ["Lead Coordinator", "Device Specialist", "Manual Analyst", "Safety Officer"],
@@ -75,6 +76,7 @@ export function GameHudShell({
   const [debriefIndex, setDebriefIndex] = useState(0);
 
   const { settings, setMuted, setVolume, triggerCue } = useAudioBus();
+  const fx = useReducedFx();
 
   const me = useMemo(
     () => state.players.find((player) => player.id === session.playerId),
@@ -101,6 +103,7 @@ export function GameHudShell({
     if (!panel) {
       return null;
     }
+    const effectiveFxProfile = fx.fxProfile === "reduced" ? "reduced" : panel.fxProfile;
 
     switch (panel.id) {
       case "mission_hud": {
@@ -141,6 +144,9 @@ export function GameHudShell({
           <BombDeviceConsolePanel
             payload={panel.payload as BombDeviceConsolePayload}
             locked={panel.locked.locked || state.status !== "running"}
+            fxProfile={effectiveFxProfile}
+            ambientLoopMs={panel.ambientLoopMs}
+            hoverDepthPx={panel.hoverDepthPx}
             onCutWire={(wireId) => onAction("bomb_cut_wire", "device_console", { wireId })}
             onPressSymbol={(symbol) => onAction("bomb_press_symbol", "device_console", { symbol })}
             onStabilize={() => onAction("bomb_stabilize_panel", "device_console")}
@@ -152,6 +158,9 @@ export function GameHudShell({
             payload={panel.payload as BombRulebookPayload}
             currentPage={rulebookPage}
             onChangePage={setRulebookPage}
+            fxProfile={effectiveFxProfile}
+            ambientLoopMs={panel.ambientLoopMs}
+            hoverDepthPx={panel.hoverDepthPx}
           />
         );
       case "safety_telemetry":
@@ -169,6 +178,9 @@ export function GameHudShell({
           <BushfireMapPanel
             payload={panel.payload as BushfireMapPayload}
             locked={panel.locked.locked || state.status !== "running"}
+            fxProfile={effectiveFxProfile}
+            ambientLoopMs={panel.ambientLoopMs}
+            hoverDepthPx={panel.hoverDepthPx}
             canUseFireTools={Boolean(state.panelDeck.panelsById.fire_ops_console) || isGm}
             canUsePoliceTools={Boolean(state.panelDeck.panelsById.police_ops_console) || isGm}
             onDeployCrew={(cellId) => onAction("bushfire_deploy_fire_crew", "fire_ops_console", { cellId })}
@@ -253,6 +265,10 @@ export function GameHudShell({
               onChange={(e) => setVolume(Number(e.target.value))}
             />
           </label>
+
+          <button type="button" className="secondary mini" onClick={fx.toggleFxProfile}>
+            FX {fx.isReducedFx ? "Reduced" : "Cinematic"}
+          </button>
 
           {isGm && state.status === "lobby" && (
             <div className="start-controls">

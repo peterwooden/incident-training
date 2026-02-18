@@ -140,6 +140,163 @@ function toDragTargets(cells: BushfireCell[]) {
   }));
 }
 
+function toTerrainLayers(cells: BushfireCell[]) {
+  const toCellPolygon = (cell: BushfireCell) => {
+    const x = 20 + cell.x * 230;
+    const y = 20 + cell.y * 110;
+    return [
+      { x, y },
+      { x: x + 210, y },
+      { x: x + 210, y: y + 92 },
+      { x, y: y + 92 },
+    ];
+  };
+
+  return [
+    {
+      id: "terrain_grassland",
+      material: "grassland" as const,
+      polygons: cells.filter((cell) => cell.fireLevel < 35).map((cell) => toCellPolygon(cell)),
+      tint: "#4b8a45",
+      elevation: 0.1,
+    },
+    {
+      id: "terrain_forest",
+      material: "forest" as const,
+      polygons: cells.filter((cell) => cell.fuel > 70).map((cell) => toCellPolygon(cell)),
+      tint: "#2f6f3a",
+      elevation: 0.2,
+    },
+    {
+      id: "terrain_urban",
+      material: "urban" as const,
+      polygons: cells.filter((cell) => cell.population > 220).map((cell) => toCellPolygon(cell)),
+      tint: "#6f737b",
+      elevation: 0.25,
+    },
+    {
+      id: "terrain_water",
+      material: "water" as const,
+      polygons: [
+        [
+          { x: 12, y: 306 },
+          { x: 238, y: 314 },
+          { x: 282, y: 352 },
+          { x: 12, y: 352 },
+        ],
+      ],
+      tint: "#2b72b0",
+      elevation: 0,
+    },
+  ];
+}
+
+function toRoadGraph(cells: BushfireCell[]) {
+  return cells
+    .map((cell) => {
+      const centerX = 125 + cell.x * 230;
+      const centerY = 68 + cell.y * 110;
+      return [
+        { id: `road_h_${cell.id}`, points: [{ x: centerX - 96, y: centerY }, { x: centerX + 96, y: centerY }], width: 7 },
+        { id: `road_v_${cell.id}`, points: [{ x: centerX, y: centerY - 44 }, { x: centerX, y: centerY + 44 }], width: 6 },
+      ];
+    })
+    .flat();
+}
+
+function toRiverPaths() {
+  return [
+    {
+      id: "river_main",
+      points: [
+        { x: 18, y: 292 },
+        { x: 128, y: 272 },
+        { x: 262, y: 292 },
+        { x: 400, y: 278 },
+        { x: 574, y: 300 },
+        { x: 708, y: 286 },
+      ],
+      width: 24,
+    },
+  ];
+}
+
+function toLandmarkSprites(cells: BushfireCell[]) {
+  return cells.slice(0, 6).map((cell, idx) => ({
+    id: `landmark_${cell.id}`,
+    kind: (["hospital", "school", "depot", "station"][idx % 4] as "hospital" | "school" | "depot" | "station"),
+    x: 72 + cell.x * 230 + ((idx % 2) * 28),
+    y: 46 + cell.y * 110 + ((idx % 3) * 12),
+    scale: 0.8 + (idx % 3) * 0.1,
+    assetId: `map-landmark-${idx % 4}`,
+  }));
+}
+
+function toTreeClusters(cells: BushfireCell[]) {
+  return cells.map((cell, idx) => ({
+    id: `trees_${cell.id}`,
+    x: 62 + cell.x * 230 + ((idx % 3) * 20),
+    y: 42 + cell.y * 110 + ((idx % 4) * 10),
+    radius: 18 + (cell.fuel % 20),
+    density: Math.max(0.2, Math.min(1, cell.fuel / 100)),
+  }));
+}
+
+function toFireFrontContours(cells: BushfireCell[]) {
+  return cells
+    .filter((cell) => cell.fireLevel > 0)
+    .map((cell) => {
+      const cx = 125 + cell.x * 230;
+      const cy = 68 + cell.y * 110;
+      return {
+        id: `contour_${cell.id}`,
+        points: [
+          { x: cx - 30, y: cy - 4 },
+          { x: cx - 8, y: cy - 24 },
+          { x: cx + 24, y: cy - 10 },
+          { x: cx + 34, y: cy + 8 },
+          { x: cx + 8, y: cy + 24 },
+          { x: cx - 20, y: cy + 20 },
+          { x: cx - 30, y: cy - 4 },
+        ],
+        intensity: Math.max(0.1, Math.min(1, cell.fireLevel / 100)),
+        phase: (cell.x + cell.y) * 0.5,
+      };
+    });
+}
+
+function toWindField(direction: BushfireScenarioState["windDirection"], strength: number) {
+  const vector = toWindVector(direction, strength);
+  const field: Array<{ x: number; y: number; dx: number; dy: number; strength: number }> = [];
+  for (let y = 40; y <= 320; y += 56) {
+    for (let x = 40; x <= 680; x += 80) {
+      field.push({
+        x,
+        y,
+        dx: vector.dx,
+        dy: vector.dy,
+        strength: Math.max(0.1, Math.min(1, strength / 3 + ((x + y) % 5) * 0.03)),
+      });
+    }
+  }
+  return field;
+}
+
+function toToolDropZones(cells: BushfireCell[]) {
+  return cells
+    .map((cell) => {
+      const cx = 125 + cell.x * 230;
+      const cy = 68 + cell.y * 110;
+      return [
+        { id: `drop_crew_${cell.id}`, zoneId: cell.id, tool: "crew" as const, x: cx - 34, y: cy - 34, radius: 14 },
+        { id: `drop_water_${cell.id}`, zoneId: cell.id, tool: "water" as const, x: cx + 34, y: cy - 34, radius: 14 },
+        { id: `drop_firebreak_${cell.id}`, zoneId: cell.id, tool: "firebreak" as const, x: cx - 34, y: cy + 34, radius: 14 },
+        { id: `drop_roadblock_${cell.id}`, zoneId: cell.id, tool: "roadblock" as const, x: cx + 34, y: cy + 34, radius: 14 },
+      ];
+    })
+    .flat();
+}
+
 export class BushfireCommandMode implements GameModeEngine {
   initObjectives(_rng: SeededRandom): RoomState["objectives"] {
     return [
@@ -388,6 +545,10 @@ export class BushfireCommandMode implements GameModeEngine {
       renderMode: "hybrid",
       interactionMode: "direct-gesture",
       overlayTextLevel: "minimal",
+      fxProfile: "cinematic",
+      ambientLoopMs: 3200,
+      hoverDepthPx: 4,
+      materialPreset: "glass-hud",
       locked: withLock("mission_hud"),
       payload: {
         timerSec: scenario.timerSec,
@@ -409,6 +570,10 @@ export class BushfireCommandMode implements GameModeEngine {
       renderMode: "hybrid",
       interactionMode: "direct-gesture",
       overlayTextLevel: "minimal",
+      fxProfile: "cinematic",
+      ambientLoopMs: 1700,
+      hoverDepthPx: 10,
+      materialPreset: "terrain-cinematic",
       locked: withLock("town_map"),
       audioCue: scenario.containment < 40 ? "warning" : "spread",
       payload: {
@@ -431,6 +596,14 @@ export class BushfireCommandMode implements GameModeEngine {
           y: target.y,
           radius: target.radius,
         })),
+        terrainLayers: toTerrainLayers(scenario.cells),
+        roadGraph: toRoadGraph(scenario.cells),
+        riverPaths: toRiverPaths(),
+        landmarkSprites: toLandmarkSprites(scenario.cells),
+        treeClusters: toTreeClusters(scenario.cells),
+        fireFrontContours: toFireFrontContours(scenario.cells),
+        windField: toWindField(scenario.windDirection, scenario.windStrength),
+        toolDropZones: toToolDropZones(scenario.cells),
         windVector: toWindVector(scenario.windDirection, scenario.windStrength),
         heatFieldSeed: Math.max(1, Math.round(scenario.containment * 100 + scenario.publicAnxiety)),
       },
@@ -446,6 +619,10 @@ export class BushfireCommandMode implements GameModeEngine {
       renderMode: "svg",
       interactionMode: "diegetic-control",
       overlayTextLevel: "supporting",
+      fxProfile: "cinematic",
+      ambientLoopMs: 2400,
+      hoverDepthPx: 5,
+      materialPreset: "ops-card",
       locked: withLock("fire_ops_console"),
       payload: {
         waterBombsAvailable: scenario.waterBombsAvailable,
@@ -464,6 +641,10 @@ export class BushfireCommandMode implements GameModeEngine {
       renderMode: "svg",
       interactionMode: "diegetic-control",
       overlayTextLevel: "supporting",
+      fxProfile: "cinematic",
+      ambientLoopMs: 2600,
+      hoverDepthPx: 5,
+      materialPreset: "ops-card",
       locked: withLock("police_ops_console"),
       payload: {
         evacuationZoneIds: scenario.cells.filter((cell) => cell.evacuated).map((cell) => cell.id),
@@ -482,6 +663,10 @@ export class BushfireCommandMode implements GameModeEngine {
       renderMode: "svg",
       interactionMode: "diegetic-control",
       overlayTextLevel: "supporting",
+      fxProfile: "cinematic",
+      ambientLoopMs: 2300,
+      hoverDepthPx: 4,
+      materialPreset: "ops-card",
       locked: withLock("public_info_console"),
       payload: {
         advisories: scenario.publicAdvisories,
@@ -500,6 +685,10 @@ export class BushfireCommandMode implements GameModeEngine {
       renderMode: "svg",
       interactionMode: "diegetic-control",
       overlayTextLevel: "supporting",
+      fxProfile: "cinematic",
+      ambientLoopMs: 2200,
+      hoverDepthPx: 4,
+      materialPreset: "ops-card",
       locked: withLock("incident_command_console"),
       payload: {
         containment: scenario.containment,
@@ -522,6 +711,10 @@ export class BushfireCommandMode implements GameModeEngine {
         renderMode: "hybrid",
         interactionMode: "drawer-control",
         overlayTextLevel: "dense",
+        fxProfile: "cinematic",
+        ambientLoopMs: 3400,
+        hoverDepthPx: 3,
+        materialPreset: "gm-deck",
         locked: withLock("gm_orchestrator"),
         payload: {
           players: args.state.players,
@@ -565,6 +758,10 @@ export class BushfireCommandMode implements GameModeEngine {
         renderMode: "svg",
         interactionMode: "drawer-control",
         overlayTextLevel: "dense",
+        fxProfile: "reduced",
+        ambientLoopMs: 4200,
+        hoverDepthPx: 2,
+        materialPreset: "ops-card",
         locked: withLock("debrief_replay"),
         payload: {
           metrics: args.debriefMetrics,

@@ -11,6 +11,16 @@
   --bad: #ff6f77;
   --muted: #cad0df;
   --depth-shadow: 0 18px 36px #00000057;
+  --mat-metal-hi: #c0d2ee;
+  --mat-metal-mid: #20344f;
+  --mat-metal-low: #0b121d;
+  --mat-glass: #d2e6ff55;
+  --mat-rubber: #1c1f29;
+  --mat-ember: #ff8f52;
+  --mat-smoke: #8f97a3;
+  --mat-grass: #4a8742;
+  --mat-asphalt: #4a515f;
+  --mat-water: #2a75b5;
   font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
 }
 
@@ -301,10 +311,18 @@ ul {
 .fx-layer,
 .map-fx {
   pointer-events: none;
+  z-index: 4;
 }
 
 .interaction-layer {
   pointer-events: all;
+  z-index: 6;
+}
+
+.geometry-layer,
+.town-map-svg {
+  position: relative;
+  z-index: 5;
 }
 
 .mission-stage {
@@ -1083,6 +1101,334 @@ ul {
 .error {
   color: var(--bad);
   font-weight: 700;
+}
+
+.layered-scene {
+  position: relative;
+  transform-style: preserve-3d;
+  perspective: var(--scene-perspective, 820px);
+}
+
+.layered-scene.animated .geometry-layer,
+.layered-scene.animated .fx-layer {
+  animation: subtleFloat 4.8s ease-in-out infinite;
+}
+
+.cinematic-depth {
+  border: 1px solid #ffffff23;
+  box-shadow:
+    0 30px 52px #02060f99,
+    inset 0 1px 0 #ffffff24;
+  background:
+    radial-gradient(circle at 18% 0%, #334f7582, transparent 40%),
+    radial-gradient(circle at 82% 100%, #582f2069, transparent 45%),
+    linear-gradient(150deg, #0f1b2d, #121c2d 48%, #0c121d);
+}
+
+.depth-parallax-group {
+  position: relative;
+  z-index: 2;
+}
+
+.specular-overlay,
+.shadow-caster,
+.rim-light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.specular-overlay {
+  background:
+    linear-gradient(var(--spec-angle), rgba(255, 255, 255, calc(var(--spec-intensity) * 0.22)), rgba(255, 255, 255, 0)),
+    radial-gradient(circle at 18% 12%, rgba(198, 220, 255, calc(var(--spec-intensity) * 0.35)), transparent 40%);
+  mix-blend-mode: screen;
+}
+
+.shadow-caster {
+  background: radial-gradient(circle at 50% calc(66% + var(--shadow-offset-y)), rgba(0, 0, 0, var(--shadow-opacity)), transparent 66%);
+  filter: blur(var(--shadow-blur));
+}
+
+.rim-light {
+  box-shadow: inset 0 -18px 28px color-mix(in srgb, var(--rim-color) calc(var(--rim-intensity) * 100%), transparent);
+}
+
+.bomb-stage-root,
+.manual-stage-root,
+.map-stage-root {
+  position: relative;
+  min-height: inherit;
+}
+
+.bomb-cinematic-pcb,
+.bomb-cinematic-scratches,
+.bomb-cinematic-reflection,
+.map-backdrop,
+.map-water-mask,
+.manual-desk-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.bomb-cinematic-pcb,
+.bomb-cinematic-scratches {
+  object-fit: cover;
+  opacity: 0.34;
+  mix-blend-mode: screen;
+}
+
+.bomb-cinematic-reflection {
+  background:
+    radial-gradient(circle at 16% 8%, #b4d8ff45, transparent 36%),
+    linear-gradient(110deg, #ffffff20, #ffffff00 44%);
+}
+
+.manual-desk-backdrop {
+  object-fit: cover;
+  opacity: 0.24;
+  mix-blend-mode: multiply;
+}
+
+.map-backdrop,
+.map-water-mask {
+  object-fit: cover;
+  opacity: 0.3;
+}
+
+.map-water-mask {
+  mix-blend-mode: screen;
+  opacity: 0.46;
+}
+
+.energy-arc {
+  fill: none;
+  stroke: #84bfff;
+  stroke-width: 2.4;
+  stroke-dasharray: 8 10;
+  opacity: 0.35;
+}
+
+.energy-arc.active {
+  filter: drop-shadow(0 0 5px #8dccff);
+}
+
+.bomb-component rect {
+  fill: #1f314b;
+  stroke: #dce8ff33;
+}
+
+.bomb-component .component-label {
+  fill: #e7f0ff;
+  font-size: 8px;
+  font-family: "Space Mono", monospace;
+  letter-spacing: 0.04em;
+}
+
+.bomb-component.display rect {
+  fill: #112d46;
+  stroke: #6cc1ff88;
+}
+
+.bomb-component.fuse rect {
+  fill: #3f3a2a;
+  stroke: #f0cf7f7a;
+}
+
+.bomb-component.busbar rect {
+  fill: url(#busbarGlow);
+}
+
+.bomb-component.fault rect {
+  stroke: #ff8e7a;
+  filter: drop-shadow(0 0 3px #ff6e6e7d);
+}
+
+.bomb-component.cut rect {
+  opacity: 0.6;
+}
+
+.interaction-hit {
+  fill: transparent;
+  stroke: transparent;
+}
+
+.interaction-hit.enabled:hover {
+  stroke: #ffffff46;
+  fill: #ffffff18;
+}
+
+.interaction-hit.disabled {
+  opacity: 0.45;
+}
+
+.manual-page-shadow {
+  fill: #0000002f;
+  filter: blur(5px);
+}
+
+.manual-diagram.background {
+  opacity: 0.55;
+}
+
+.manual-diagram.mid {
+  opacity: 0.84;
+}
+
+.manual-diagram.foreground {
+  opacity: 1;
+}
+
+.manual-corner-curl {
+  cursor: pointer;
+  filter: drop-shadow(-2px -2px 4px #6d5a4788);
+}
+
+.manual-page-tab {
+  fill: none;
+  stroke: #98795a80;
+  stroke-width: 10;
+  cursor: pointer;
+}
+
+.manual-hotspot {
+  transition: opacity 180ms ease;
+}
+
+.manual-hotspot:hover {
+  opacity: 0.9;
+}
+
+.cinematic-tabs {
+  justify-content: flex-end;
+}
+
+.terrain-layer polygon {
+  stroke: #ffffff1f;
+  stroke-width: 0.8;
+}
+
+.terrain-layer.grassland polygon {
+  fill: #4f8f45;
+}
+
+.terrain-layer.forest polygon {
+  fill: #366b34;
+}
+
+.terrain-layer.urban polygon {
+  fill: #6f737b;
+}
+
+.terrain-layer.water polygon {
+  fill: #3175b5;
+}
+
+.terrain-road {
+  fill: none;
+  stroke: #4f5664;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.65;
+}
+
+.terrain-river {
+  fill: none;
+  stroke: #3c9ce0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.46;
+}
+
+.terrain-trees {
+  fill: #2e5f31;
+}
+
+.terrain-landmark rect {
+  fill: #dce8f8;
+  stroke: #283f5b;
+  stroke-width: 1;
+}
+
+.terrain-landmark.hospital rect {
+  fill: #ffd6d6;
+}
+
+.terrain-landmark.station rect {
+  fill: #d6e0ff;
+}
+
+.wind-sample {
+  stroke: #d9f5e8;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.fire-front-contour {
+  fill: none;
+  stroke: #ff9c68;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 8 8;
+  filter: drop-shadow(0 0 4px #ff8a4a);
+}
+
+.drop-feedback {
+  fill: transparent;
+  stroke-width: 3;
+  pointer-events: none;
+}
+
+.drop-feedback.valid {
+  stroke: #85e5ac;
+}
+
+.drop-feedback.invalid {
+  stroke: #ff8f86;
+}
+
+.asset-slot {
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.asset-slot.active {
+  transform: translateY(-3px);
+  filter: drop-shadow(0 0 9px #ffd39f99);
+}
+
+.map-zone {
+  transition: transform 180ms ease, stroke 180ms ease, filter 180ms ease;
+}
+
+.map-zone.focused {
+  filter: drop-shadow(0 0 8px #ffd29172);
+}
+
+.zone-radial-actions .radial-tool {
+  filter: drop-shadow(0 2px 4px #0000007f);
+}
+
+.zone-radial-actions .radial-tool:hover {
+  transform: translateY(-1px);
+}
+
+@keyframes subtleFloat {
+  0% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-1px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 920px) {

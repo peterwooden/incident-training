@@ -1,0 +1,14 @@
+<svg width="720" height="360" viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4f8f45"/>
+      <stop offset="100%" stop-color="#2f5e33"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="360" fill="url(#grass)"/>
+  <g fill="#8dc17f" fill-opacity="0.3">
+    <ellipse cx="120" cy="80" rx="90" ry="45"/>
+    <ellipse cx="340" cy="220" rx="120" ry="70"/>
+    <ellipse cx="590" cy="120" rx="110" ry="58"/>
+  </g>
+</svg>

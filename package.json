@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/node": "^22.13.5"
   },
   "scripts": {
@@ -14,6 +15,7 @@
     "test": "npm run --workspaces test",
     "test:e2e": "npm run -w apps/api test:e2e",
     "check:visual-budget": "node scripts/check-visual-budget.mjs",
+    "capture:visual": "node scripts/capture-visual-snapshots.mjs",
     "dev:api": "npm run -w apps/api dev",
     "dev:web": "npm run -w apps/web dev"
   }

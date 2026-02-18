@@ -1,4 +1,5 @@
 import type { IncidentCommandPayload } from "@incident/shared";
+import { LayeredScene, RimLight, ShadowCaster, SpecularOverlay, useAmbientMotionClock } from "../../visuals/core";
 
 interface IncidentCommandPanelProps {
   payload: IncidentCommandPayload;
@@ -6,6 +7,7 @@ interface IncidentCommandPanelProps {
 
 export function IncidentCommandPanel({ payload }: IncidentCommandPanelProps) {
   const containment = Math.max(0, Math.min(100, payload.containment));
+  const { pulse } = useAmbientMotionClock({ loopMs: 2200, paused: false });
 
   return (
     <section className="scene-panel incident-command-panel visual-heavy">
@@ -17,7 +19,11 @@ export function IncidentCommandPanel({ payload }: IncidentCommandPanelProps) {
         </div>
       </header>
 
-      <div className="visual-stage command-stage">
+      <LayeredScene className="visual-stage command-stage cinematic-depth" depthPx={4} perspectivePx={760}>
+        <ShadowCaster blurPx={14} opacity={0.32} offsetY={6} />
+        <RimLight color="#9ce4cd" intensity={0.2 + pulse * 0.1} />
+        <SpecularOverlay intensity={0.14} angleDeg={-10} />
+
         <svg viewBox="0 0 340 190" className="geometry-layer" aria-label="Strategic risk radar">
           <circle cx={88} cy={92} r={62} className="radar-ring" />
           <circle cx={88} cy={92} r={42} className="radar-ring" />
@@ -44,7 +50,7 @@ export function IncidentCommandPanel({ payload }: IncidentCommandPanelProps) {
             </article>
           ))}
         </div>
-      </div>
+      </LayeredScene>
     </section>
   );
 }

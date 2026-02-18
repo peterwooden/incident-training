@@ -4,6 +4,7 @@ import type { RoomView } from "@incident/shared";
 import type { RoomContextValue, Session } from "./types";
 import { HomePage } from "./pages/HomePage";
 import { RoomPage } from "./pages/RoomPage";
+import { VisualRegressionPage } from "./pages/VisualRegressionPage";
 import { RoomContext } from "./context";
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/room/:roomCode" element={<RoomPage />} />
+        <Route path="/visual-regression" element={<VisualRegressionPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </RoomContext.Provider>

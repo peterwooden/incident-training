@@ -145,6 +145,9 @@ function buildManualSpreads(scenario: BombScenarioState): ManualSpread[] {
     return {
       id: page.id,
       title: page.title,
+      spreadBackgroundAssetId: index % 2 === 0 ? "manual-spread-blueprint" : "manual-spread-opsdesk",
+      paperNormalAssetId: "paper-normal",
+      creaseMapAssetId: "paper-crease",
       diagramAssets: [
         {
           id: `${page.id}_wire_arc`,
@@ -165,6 +168,42 @@ function buildManualSpreads(scenario: BombScenarioState): ManualSpread[] {
           ],
         },
       ],
+      diagramLayers: [
+        {
+          id: `${page.id}_bg_layer`,
+          depth: "background",
+          type: "safety",
+          points: [
+            { x: 50, y: 90 },
+            { x: 700, y: 90 },
+            { x: 700, y: 300 },
+            { x: 50, y: 300 },
+          ],
+          fill: index % 2 === 0 ? "#f0e7d3" : "#ece3cf",
+        },
+        {
+          id: `${page.id}_wire_layer`,
+          depth: "mid",
+          type: "wire",
+          points: [
+            { x: 92, y: yBase + 12 },
+            { x: 210, y: yBase + 46 },
+            { x: 332, y: yBase + 14 },
+          ],
+          stroke: "#315f96",
+        },
+        {
+          id: `${page.id}_glyph_layer`,
+          depth: "foreground",
+          type: "glyph",
+          points: [
+            { x: 372, y: 92 },
+            { x: 446, y: 144 },
+            { x: 530, y: 94 },
+          ],
+          stroke: "#744730",
+        },
+      ],
       hotspots: page.sections.map((section, sectionIndex) => ({
         id: `${page.id}_spot_${sectionIndex + 1}`,
         x: 70,
@@ -180,8 +219,112 @@ function buildManualSpreads(scenario: BombScenarioState): ManualSpread[] {
         y: 80 + sectionIndex * 80,
         text: section,
       })),
+      turnHintPath: [
+        { x: 690, y: 280 },
+        { x: 728, y: 292 },
+        { x: 712, y: 334 },
+      ],
     };
   });
+}
+
+function buildBombComponents(scenario: BombScenarioState) {
+  return [
+    ...scenario.wires.map((wire, index) => ({
+      id: `terminal_${wire.id}`,
+      type: "terminal" as const,
+      x: 84,
+      y: 36 + index * 40,
+      width: 24,
+      height: 24,
+      rotationDeg: 0,
+      state: wire.isCut ? ("cut" as const) : ("active" as const),
+      valueLabel: wire.color.toUpperCase(),
+    })),
+    {
+      id: "core_display",
+      type: "display" as const,
+      x: 548,
+      y: 34,
+      width: 132,
+      height: 72,
+      rotationDeg: 0,
+      state: scenario.status === "armed" ? ("active" as const) : ("idle" as const),
+      valueLabel: `${scenario.timerSec}s`,
+    },
+    {
+      id: "fuse_bank",
+      type: "fuse" as const,
+      x: 556,
+      y: 124,
+      width: 120,
+      height: 18,
+      rotationDeg: 0,
+      state: scenario.strikes > 0 ? ("fault" as const) : ("idle" as const),
+      valueLabel: `STRIKE ${scenario.strikes}`,
+    },
+    {
+      id: "busbar_a",
+      type: "busbar" as const,
+      x: 146,
+      y: 218,
+      width: 258,
+      height: 9,
+      rotationDeg: 0,
+      state: "active" as const,
+    },
+    {
+      id: "resistor_pack",
+      type: "resistor" as const,
+      x: 310,
+      y: 22,
+      width: 86,
+      height: 18,
+      rotationDeg: -8,
+      state: "idle" as const,
+      valueLabel: "4.7k",
+    },
+    {
+      id: "capacitor_core",
+      type: "capacitor" as const,
+      x: 428,
+      y: 24,
+      width: 42,
+      height: 58,
+      rotationDeg: 8,
+      state: scenario.timerSec < 160 ? ("fault" as const) : ("idle" as const),
+      valueLabel: "220uF",
+    },
+  ];
+}
+
+function buildEnergyArcs(scenario: BombScenarioState) {
+  return scenario.wires.map((wire, index) => ({
+    id: `arc_${wire.id}`,
+    points: [
+      { x: 118, y: 48 + index * 40 },
+      { x: 260, y: 44 + index * 42 },
+      { x: 424, y: 48 + index * 40 },
+    ],
+    intensity: wire.isCut ? 0.15 : 0.42 + (wire.isCritical ? 0.26 : 0),
+    speed: 0.6 + index * 0.12,
+    active: !wire.isCut,
+  }));
+}
+
+function buildLightRigs(scenario: BombScenarioState) {
+  return [
+    { id: "key", kind: "key" as const, x: 0.2, y: 0.05, intensity: 0.88, color: "#d5e7ff" },
+    { id: "fill", kind: "fill" as const, x: 0.78, y: 0.14, intensity: 0.62, color: "#8cb9ff" },
+    {
+      id: "rim",
+      kind: "rim" as const,
+      x: 0.54,
+      y: 0.94,
+      intensity: 0.5 + Math.min(0.4, scenario.strikes * 0.12),
+      color: "#ff9a72",
+    },
+  ];
 }
 
 export class BombDefusalMode implements GameModeEngine {
@@ -426,6 +569,66 @@ export class BombDefusalMode implements GameModeEngine {
       }
     };
 
+    const wireAnchors = scenario.wires.map((wire, index) => ({
+      wireId: wire.id,
+      start: wireLayoutPoint(index, true),
+      end: wireLayoutPoint(index, false),
+    }));
+
+    const cuttableSegments = scenario.wires.map((wire, index) => ({
+      id: `seg_${wire.id}`,
+      wireId: wire.id,
+      start: { x: 180, y: 48 + index * 40 },
+      end: { x: 420, y: 48 + index * 40 },
+      thickness: 10,
+    }));
+
+    const symbolNodes = scenario.symbolModule.availableSymbols.map((symbol, idx) => {
+      const angle = (Math.PI * 2 * idx) / scenario.symbolModule.availableSymbols.length;
+      return {
+        symbol,
+        x: 615 + Math.cos(angle) * 44,
+        y: 95 + Math.sin(angle) * 44,
+        radius: 18,
+      };
+    });
+
+    const interactionRegions = [
+      ...cuttableSegments.map((segment) => {
+        const wire = scenario.wires.find((item) => item.id === segment.wireId);
+        return {
+          id: `region_${segment.id}`,
+          targetId: segment.wireId,
+          kind: "wire" as const,
+          shape: "line" as const,
+          cursor: wire?.isCut ? ("not-allowed" as const) : ("crosshair" as const),
+          enabled: !wire?.isCut && scenario.status === "armed",
+          affordance: "cut" as const,
+          line: { start: segment.start, end: segment.end, thickness: segment.thickness + 8 },
+        };
+      }),
+      ...symbolNodes.map((node) => ({
+        id: `region_symbol_${node.symbol}`,
+        targetId: node.symbol,
+        kind: "symbol" as const,
+        shape: "circle" as const,
+        cursor: scenario.status === "armed" ? ("pointer" as const) : ("not-allowed" as const),
+        enabled: scenario.status === "armed",
+        affordance: "press" as const,
+        circle: { center: { x: node.x, y: node.y }, radius: node.radius + 8 },
+      })),
+      {
+        id: "region_stabilizer",
+        targetId: "stability_module",
+        kind: "stabilizer" as const,
+        shape: "circle" as const,
+        cursor: scenario.status === "armed" ? ("grab" as const) : ("not-allowed" as const),
+        enabled: scenario.status === "armed",
+        affordance: "hold" as const,
+        circle: { center: { x: 615, y: 195 }, radius: 44 },
+      },
+    ];
+
     pushPanel({
       id: "mission_hud",
       kind: "shared",
@@ -436,6 +639,10 @@ export class BombDefusalMode implements GameModeEngine {
       renderMode: "hybrid",
       interactionMode: "direct-gesture",
       overlayTextLevel: "minimal",
+      fxProfile: "cinematic",
+      ambientLoopMs: 3200,
+      hoverDepthPx: 4,
+      materialPreset: "glass-hud",
       locked: withLock("mission_hud"),
       audioCue: scenario.timerSec < 90 ? "warning" : undefined,
       payload: {
@@ -458,6 +665,10 @@ export class BombDefusalMode implements GameModeEngine {
       renderMode: "hybrid",
       interactionMode: "diegetic-control",
       overlayTextLevel: "minimal",
+      fxProfile: "cinematic",
+      ambientLoopMs: 1800,
+      hoverDepthPx: 10,
+      materialPreset: "metal-console",
       locked: withLock("device_console"),
       audioCue: scenario.strikes > 0 ? "strike" : undefined,
       payload: {
@@ -470,18 +681,8 @@ export class BombDefusalMode implements GameModeEngine {
           availableSymbols: scenario.symbolModule.availableSymbols,
           enteredSequence: scenario.symbolModule.enteredSequence,
         },
-        wireAnchors: scenario.wires.map((wire, index) => ({
-          wireId: wire.id,
-          start: wireLayoutPoint(index, true),
-          end: wireLayoutPoint(index, false),
-        })),
-        cuttableSegments: scenario.wires.map((wire, index) => ({
-          id: `seg_${wire.id}`,
-          wireId: wire.id,
-          start: { x: 180, y: 48 + index * 40 },
-          end: { x: 420, y: 48 + index * 40 },
-          thickness: 10,
-        })),
+        wireAnchors,
+        cuttableSegments,
         moduleBounds: [
           { id: "wire_module", x: 28, y: 24, width: 510, height: 210 },
           { id: "glyph_module", x: 540, y: 24, width: 150, height: 120 },
@@ -492,15 +693,19 @@ export class BombDefusalMode implements GameModeEngine {
           { id: "warn", x: 610, y: 196, color: "amber", active: scenario.strikes === 1 },
           { id: "danger", x: 650, y: 196, color: "red", active: scenario.strikes >= 2 },
         ],
-        symbolNodes: scenario.symbolModule.availableSymbols.map((symbol, idx) => {
-          const angle = (Math.PI * 2 * idx) / scenario.symbolModule.availableSymbols.length;
-          return {
-            symbol,
-            x: 615 + Math.cos(angle) * 44,
-            y: 95 + Math.sin(angle) * 44,
-            radius: 18,
-          };
-        }),
+        symbolNodes,
+        deviceSkin: {
+          shellGradient: ["#1a283d", "#0a101a"],
+          bezelDepth: 10,
+          grimeAmount: 0.32,
+          vignette: 0.5,
+          reflectionStrength: 0.56,
+          textureAssetId: "bomb-chassis-normal",
+        },
+        components: buildBombComponents(scenario),
+        energyArcs: buildEnergyArcs(scenario),
+        lightRigs: buildLightRigs(scenario),
+        interactionRegions,
         shakeIntensity: Math.min(1, (scenario.strikes / scenario.maxStrikes) * 0.85 + (540 - scenario.timerSec) / 1000),
         diagnostics: scenario.deviceReadouts,
       },
@@ -516,6 +721,10 @@ export class BombDefusalMode implements GameModeEngine {
       renderMode: "svg",
       interactionMode: "direct-gesture",
       overlayTextLevel: "minimal",
+      fxProfile: "cinematic",
+      ambientLoopMs: 2600,
+      hoverDepthPx: 6,
+      materialPreset: "paper-manual",
       locked: withLock("manual_rulebook"),
       payload: {
         spreads: buildManualSpreads(scenario),
@@ -536,6 +745,10 @@ export class BombDefusalMode implements GameModeEngine {
       renderMode: "hybrid",
       interactionMode: "diegetic-control",
       overlayTextLevel: "supporting",
+      fxProfile: "cinematic",
+      ambientLoopMs: 2100,
+      hoverDepthPx: 5,
+      materialPreset: "metal-console",
       locked: withLock("safety_telemetry"),
       audioCue: scenario.timerSec < 100 ? "warning" : undefined,
       payload: {
@@ -555,6 +768,10 @@ export class BombDefusalMode implements GameModeEngine {
       renderMode: "svg",
       interactionMode: "diegetic-control",
       overlayTextLevel: "supporting",
+      fxProfile: "cinematic",
+      ambientLoopMs: 2400,
+      hoverDepthPx: 4,
+      materialPreset: "ops-card",
       locked: withLock("coordination_board"),
       payload: {
         checklist: args.state.objectives.map((objective) => ({
@@ -577,6 +794,10 @@ export class BombDefusalMode implements GameModeEngine {
         renderMode: "hybrid",
         interactionMode: "drawer-control",
         overlayTextLevel: "dense",
+        fxProfile: "cinematic",
+        ambientLoopMs: 3400,
+        hoverDepthPx: 3,
+        materialPreset: "gm-deck",
         locked: withLock("gm_orchestrator"),
         payload: {
           players: args.state.players,
@@ -613,6 +834,10 @@ export class BombDefusalMode implements GameModeEngine {
         renderMode: "svg",
         interactionMode: "drawer-control",
         overlayTextLevel: "dense",
+        fxProfile: "reduced",
+        ambientLoopMs: 4200,
+        hoverDepthPx: 2,
+        materialPreset: "ops-card",
         locked: withLock("debrief_replay"),
         payload: {
           metrics: args.debriefMetrics,

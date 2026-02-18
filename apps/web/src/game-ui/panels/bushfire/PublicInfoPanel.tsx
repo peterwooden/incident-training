@@ -1,4 +1,5 @@
 import type { PublicInfoPayload } from "@incident/shared";
+import { LayeredScene, RimLight, ShadowCaster, SpecularOverlay, useAmbientMotionClock } from "../../visuals/core";
 
 interface PublicInfoPanelProps {
   payload: PublicInfoPayload;
@@ -23,6 +24,7 @@ export function PublicInfoPanel({
   locked,
 }: PublicInfoPanelProps) {
   const anxiety = Math.max(0, Math.min(100, payload.anxiety));
+  const { pulse } = useAmbientMotionClock({ loopMs: 1900, paused: false });
 
   return (
     <section className="scene-panel public-info-panel visual-heavy">
@@ -34,7 +36,11 @@ export function PublicInfoPanel({
         </div>
       </header>
 
-      <div className="visual-stage public-info-stage">
+      <LayeredScene className="visual-stage public-info-stage cinematic-depth" depthPx={4} perspectivePx={760}>
+        <ShadowCaster blurPx={14} opacity={0.32} offsetY={6} />
+        <RimLight color="#8ec9ff" intensity={0.2 + pulse * 0.12} />
+        <SpecularOverlay intensity={0.16} angleDeg={-16} />
+
         <svg viewBox="0 0 340 180" className="geometry-layer" aria-label="Advisory broadcast">
           <circle cx={85} cy={90} r={58} className="broadcast-ring" />
           <circle
@@ -82,7 +88,7 @@ export function PublicInfoPanel({
             TX
           </button>
         </div>
-      </div>
+      </LayeredScene>
     </section>
   );
 }

@@ -63,6 +63,38 @@ describe("BombDefusalMode", () => {
     expect(deck.availablePanelIds).toContain("manual_rulebook");
     expect(deck.availablePanelIds).not.toContain("device_console");
   });
+
+  it("emits deterministic cinematic bomb payload", () => {
+    const mode = new BombDefusalMode();
+    const stateA = baseState("bomb-defusal", "Device Specialist");
+    const stateB = baseState("bomb-defusal", "Device Specialist");
+
+    const deckA = mode.buildPanelDeck({
+      state: stateA,
+      viewer: stateA.players[0],
+      effectiveRole: "Device Specialist",
+      panelState: stateA.panelState,
+      roleOptions: ["Lead Coordinator", "Manual Analyst", "Device Specialist", "Safety Officer", "Observer"],
+      debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
+    });
+    const deckB = mode.buildPanelDeck({
+      state: stateB,
+      viewer: stateB.players[0],
+      effectiveRole: "Device Specialist",
+      panelState: stateB.panelState,
+      roleOptions: ["Lead Coordinator", "Manual Analyst", "Device Specialist", "Safety Officer", "Observer"],
+      debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
+    });
+
+    const payloadA = deckA.panelsById.device_console?.payload;
+    const payloadB = deckB.panelsById.device_console?.payload;
+
+    expect(payloadA).toBeDefined();
+    expect(payloadA && "components" in payloadA).toBe(true);
+    expect(payloadA && "energyArcs" in payloadA).toBe(true);
+    expect(payloadA && "interactionRegions" in payloadA).toBe(true);
+    expect(JSON.stringify(payloadA)).toEqual(JSON.stringify(payloadB));
+  });
 });
 
 describe("BushfireCommandMode", () => {
@@ -84,5 +116,37 @@ describe("BushfireCommandMode", () => {
 
     expect(mutation.scoreDelta).toBeGreaterThanOrEqual(0);
     expect(mutation.replaceScenario?.type).toBe("bushfire-command");
+  });
+
+  it("emits deterministic rich map payload", () => {
+    const mode = new BushfireCommandMode();
+    const stateA = baseState("bushfire-command", "Fire Operations SME");
+    const stateB = baseState("bushfire-command", "Fire Operations SME");
+
+    const deckA = mode.buildPanelDeck({
+      state: stateA,
+      viewer: stateA.players[0],
+      effectiveRole: "Fire Operations SME",
+      panelState: stateA.panelState,
+      roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Observer"],
+      debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
+    });
+    const deckB = mode.buildPanelDeck({
+      state: stateB,
+      viewer: stateB.players[0],
+      effectiveRole: "Fire Operations SME",
+      panelState: stateB.panelState,
+      roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Observer"],
+      debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
+    });
+
+    const payloadA = deckA.panelsById.town_map?.payload;
+    const payloadB = deckB.panelsById.town_map?.payload;
+    expect(payloadA).toBeDefined();
+    expect(payloadA && "terrainLayers" in payloadA).toBe(true);
+    expect(payloadA && "roadGraph" in payloadA).toBe(true);
+    expect(payloadA && "fireFrontContours" in payloadA).toBe(true);
+    expect(payloadA && "windField" in payloadA).toBe(true);
+    expect(JSON.stringify(payloadA)).toEqual(JSON.stringify(payloadB));
   });
 });

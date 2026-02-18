@@ -159,6 +159,15 @@ export type AudioCue = "warning" | "strike" | "spread" | "success" | "fail";
 export type RenderMode = "svg" | "canvas" | "hybrid";
 export type InteractionMode = "direct-gesture" | "diegetic-control" | "drawer-control";
 export type OverlayTextLevel = "minimal" | "supporting" | "dense";
+export type FxProfile = "cinematic" | "reduced";
+export type MaterialPreset =
+  | "metal-console"
+  | "paper-manual"
+  | "terrain-cinematic"
+  | "glass-hud"
+  | "ops-card"
+  | "gm-deck";
+export type CursorStyle = "pointer" | "crosshair" | "grab" | "not-allowed";
 
 export interface Point2D {
   x: number;
@@ -211,6 +220,59 @@ export interface SymbolNode {
   radius: number;
 }
 
+export interface DeviceSkin {
+  shellGradient: [string, string];
+  bezelDepth: number;
+  grimeAmount: number;
+  vignette: number;
+  reflectionStrength: number;
+  textureAssetId?: string;
+}
+
+export type BombComponentType = "capacitor" | "resistor" | "busbar" | "fuse" | "display" | "terminal";
+
+export interface BombComponent {
+  id: string;
+  type: BombComponentType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotationDeg: number;
+  state: "idle" | "active" | "fault" | "cut";
+  valueLabel?: string;
+}
+
+export interface EnergyArc {
+  id: string;
+  points: Point2D[];
+  intensity: number;
+  speed: number;
+  active: boolean;
+}
+
+export interface LightRig {
+  id: string;
+  kind: "key" | "fill" | "rim";
+  x: number;
+  y: number;
+  intensity: number;
+  color: string;
+}
+
+export interface InteractionRegion {
+  id: string;
+  targetId: string;
+  kind: "wire" | "symbol" | "stabilizer" | "module";
+  shape: "line" | "circle" | "rect";
+  cursor: CursorStyle;
+  enabled: boolean;
+  affordance: "cut" | "press" | "hold" | "inspect";
+  line?: { start: Point2D; end: Point2D; thickness: number };
+  circle?: { center: Point2D; radius: number };
+  rect?: { x: number; y: number; width: number; height: number };
+}
+
 export interface BombDeviceConsolePayload {
   status: BombScenarioState["status"];
   timerSec: number;
@@ -226,6 +288,11 @@ export interface BombDeviceConsolePayload {
   moduleBounds: ModuleBounds[];
   stateLights: StateLight[];
   symbolNodes: SymbolNode[];
+  deviceSkin: DeviceSkin;
+  components: BombComponent[];
+  energyArcs: EnergyArc[];
+  lightRigs: LightRig[];
+  interactionRegions: InteractionRegion[];
   shakeIntensity: number;
   /** @deprecated Use geometry fields and lights, this is fallback-only text */
   diagnostics: string[];
@@ -251,9 +318,21 @@ export interface ManualCalloutPin {
 export interface ManualSpread {
   id: string;
   title: string;
+  spreadBackgroundAssetId: string;
+  paperNormalAssetId: string;
+  creaseMapAssetId: string;
   diagramAssets: Array<{ id: string; type: "wire" | "glyph" | "safety"; points: Point2D[] }>;
+  diagramLayers: Array<{
+    id: string;
+    depth: "background" | "mid" | "foreground";
+    type: "wire" | "glyph" | "safety";
+    points: Point2D[];
+    stroke?: string;
+    fill?: string;
+  }>;
   hotspots: ManualHotspot[];
   calloutPins: ManualCalloutPin[];
+  turnHintPath: Point2D[];
 }
 
 export interface BombRulebookPayload {
@@ -304,6 +383,67 @@ export interface WindVector {
   dy: number;
 }
 
+export interface TerrainLayer {
+  id: string;
+  material: "grassland" | "forest" | "urban" | "water" | "asphalt";
+  polygons: Point2D[][];
+  tint: string;
+  elevation: number;
+}
+
+export interface RoadSegment {
+  id: string;
+  points: Point2D[];
+  width: number;
+}
+
+export interface RiverPath {
+  id: string;
+  points: Point2D[];
+  width: number;
+}
+
+export interface LandmarkSprite {
+  id: string;
+  kind: "hospital" | "school" | "depot" | "station";
+  x: number;
+  y: number;
+  scale: number;
+  assetId: string;
+}
+
+export interface TreeCluster {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  density: number;
+}
+
+export interface FireFrontContour {
+  id: string;
+  points: Point2D[];
+  intensity: number;
+  phase: number;
+}
+
+export interface WindSample {
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  strength: number;
+}
+
+export interface ToolDropZone {
+  id: string;
+  zoneId: string;
+  tool: BushfireToolType;
+  x: number;
+  y: number;
+  radius: number;
+}
+
 export interface BushfireMapPayload {
   windDirection: BushfireScenarioState["windDirection"];
   windStrength: BushfireScenarioState["windStrength"];
@@ -313,6 +453,14 @@ export interface BushfireMapPayload {
   zonePolygons: ZonePolygon[];
   assetSlots: AssetSlot[];
   dragTargets: DragTarget[];
+  terrainLayers: TerrainLayer[];
+  roadGraph: RoadSegment[];
+  riverPaths: RiverPath[];
+  landmarkSprites: LandmarkSprite[];
+  treeClusters: TreeCluster[];
+  fireFrontContours: FireFrontContour[];
+  windField: WindSample[];
+  toolDropZones: ToolDropZone[];
   windVector: WindVector;
   heatFieldSeed: number;
 }
@@ -388,6 +536,10 @@ export interface ScenePanelView<K extends ScenePanelId = ScenePanelId> {
   renderMode: RenderMode;
   interactionMode: InteractionMode;
   overlayTextLevel: OverlayTextLevelForPanel<K>;
+  fxProfile: FxProfile;
+  ambientLoopMs: number;
+  hoverDepthPx: number;
+  materialPreset: MaterialPreset;
   locked: ScenePanelLockState;
   audioCue?: AudioCue;
   payload: ScenePanelPayloadMap[K];

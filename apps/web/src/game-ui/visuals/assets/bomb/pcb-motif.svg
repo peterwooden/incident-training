@@ -1,0 +1,16 @@
+<svg width="512" height="256" viewBox="0 0 512 256" xmlns="http://www.w3.org/2000/svg">
+  <g stroke="#7fb4ff" stroke-opacity="0.3" stroke-width="2" fill="none">
+    <path d="M24 40 H120 V90 H210"/>
+    <path d="M180 30 V140 H308 V80 H470"/>
+    <path d="M60 210 H220 V160 H390"/>
+    <path d="M412 24 V120 H332"/>
+    <path d="M250 220 V120 H90"/>
+  </g>
+  <g fill="#8ed5ff" fill-opacity="0.3">
+    <circle cx="120" cy="90" r="4"/>
+    <circle cx="210" cy="90" r="4"/>
+    <circle cx="308" cy="140" r="4"/>
+    <circle cx="390" cy="160" r="4"/>
+    <circle cx="332" cy="120" r="4"/>
+  </g>
+</svg>

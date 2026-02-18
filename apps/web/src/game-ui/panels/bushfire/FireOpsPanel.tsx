@@ -1,4 +1,5 @@
 import type { FireOpsPayload } from "@incident/shared";
+import { LayeredScene, RimLight, ShadowCaster, SpecularOverlay, useAmbientMotionClock } from "../../visuals/core";
 
 interface FireOpsPanelProps {
   payload: FireOpsPayload;
@@ -6,6 +7,7 @@ interface FireOpsPanelProps {
 
 export function FireOpsPanel({ payload }: FireOpsPanelProps) {
   const bombPips = Array.from({ length: Math.max(1, payload.waterBombsAvailable + 2) }, (_, idx) => idx);
+  const { pulse } = useAmbientMotionClock({ loopMs: 2100, paused: false });
 
   return (
     <section className="scene-panel fire-ops-panel visual-heavy">
@@ -17,7 +19,11 @@ export function FireOpsPanel({ payload }: FireOpsPanelProps) {
         </div>
       </header>
 
-      <div className="visual-stage ops-stage">
+      <LayeredScene className="visual-stage ops-stage cinematic-depth" depthPx={4} perspectivePx={720}>
+        <ShadowCaster blurPx={12} opacity={0.3} offsetY={5} />
+        <RimLight color="#95bfff" intensity={0.16 + pulse * 0.12} />
+        <SpecularOverlay intensity={0.14} angleDeg={-14} />
+
         <div className="ops-pips" aria-label="Water payloads">
           {bombPips.map((pip) => (
             <span key={pip} className={`ops-pip ${pip < payload.waterBombsAvailable ? "active" : "spent"}`} />
@@ -32,7 +38,7 @@ export function FireOpsPanel({ payload }: FireOpsPanelProps) {
             </article>
           ))}
         </div>
-      </div>
+      </LayeredScene>
     </section>
   );
 }

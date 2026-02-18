@@ -1,10 +1,13 @@
 import type { BombCoordinationBoardPayload } from "@incident/shared";
+import { LayeredScene, RimLight, ShadowCaster, SpecularOverlay, useAmbientMotionClock } from "../../visuals/core";
 
 interface BombCoordinationBoardPanelProps {
   payload: BombCoordinationBoardPayload;
 }
 
 export function BombCoordinationBoardPanel({ payload }: BombCoordinationBoardPanelProps) {
+  const { pulse } = useAmbientMotionClock({ loopMs: 2400, paused: false });
+
   return (
     <section className="scene-panel coordination-board-panel visual-heavy">
       <header className="panel-chip-row">
@@ -15,7 +18,11 @@ export function BombCoordinationBoardPanel({ payload }: BombCoordinationBoardPan
         </div>
       </header>
 
-      <div className="visual-stage coordination-stage">
+      <LayeredScene className="visual-stage coordination-stage cinematic-depth" depthPx={4} perspectivePx={760}>
+        <ShadowCaster blurPx={18} opacity={0.35} offsetY={7} />
+        <RimLight color="#9ab9ee" intensity={0.2 + pulse * 0.08} />
+        <SpecularOverlay intensity={0.18} angleDeg={-12} />
+
         <div className="coord-lanes" role="img" aria-label="Command confirmation lanes">
           {payload.checklist.map((item, index) => (
             <article key={item.id} className={`coord-card ${item.completed ? "complete" : "pending"}`}>
@@ -34,7 +41,7 @@ export function BombCoordinationBoardPanel({ payload }: BombCoordinationBoardPan
             </div>
           ))}
         </div>
-      </div>
+      </LayeredScene>
     </section>
   );
 }
