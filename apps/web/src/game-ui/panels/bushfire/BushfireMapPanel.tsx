@@ -31,13 +31,20 @@ interface BushfireMapPanelProps {
 }
 
 const MAP_WIDTH = 720;
-const MAP_HEIGHT = 360;
+const MAP_HEIGHT = 420;
 
 const TOOL_LABEL: Record<BushfireToolType, string> = {
   crew: "CR",
   water: "WT",
   firebreak: "FB",
   roadblock: "RB",
+};
+
+const TOOL_ICON_PATH: Record<BushfireToolType, string> = {
+  crew: "M -8 0 L -1 -8 L 6 0 L 1 8 Z",
+  water: "M 0 -9 C 5 -2 8 2 8 6 C 8 10 4 13 0 13 C -4 13 -8 10 -8 6 C -8 2 -5 -2 0 -9 Z",
+  firebreak: "M -9 9 L 9 -9 M -10 -2 L -2 -10 M 2 10 L 10 2",
+  roadblock: "M -10 -4 L 10 -4 L 7 5 L -7 5 Z M -12 -6 L -7 -6 M 7 7 L 12 7",
 };
 
 function centroid(points: Point2D[]): Point2D {
@@ -113,6 +120,15 @@ export function BushfireMapPanel({
     }
     return map;
   }, [payload.cells]);
+
+  const focusedCell = useMemo(() => {
+    if (focusedZoneId) {
+      return cellById.get(focusedZoneId);
+    }
+    return payload.cells
+      .slice()
+      .sort((a, b) => b.fireLevel - a.fireLevel)[0];
+  }, [cellById, focusedZoneId, payload.cells]);
 
   useEffect(() => {
     if (!dropFeedback) {
@@ -219,10 +235,23 @@ export function BushfireMapPanel({
               }}
             >
               <defs>
-                <linearGradient id="zoneFill" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#1f2d45" />
-                  <stop offset="100%" stopColor="#172234" />
+                <linearGradient id="zoneFill" x1="0" y1="0" x2="0.92" y2="1">
+                  <stop offset="0%" stopColor="#3e6544" />
+                  <stop offset="45%" stopColor="#29443b" />
+                  <stop offset="100%" stopColor="#1d2d31" />
                 </linearGradient>
+                <linearGradient id="zoneRim" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#f2f8d6" stopOpacity="0.44" />
+                  <stop offset="100%" stopColor="#88b9ff" stopOpacity="0.14" />
+                </linearGradient>
+                <radialGradient id="zoneHeatCore" cx="50%" cy="45%">
+                  <stop offset="0%" stopColor="#ffd6a4" stopOpacity="0.85" />
+                  <stop offset="42%" stopColor="#ff8c59" stopOpacity="0.42" />
+                  <stop offset="100%" stopColor="#e84b2f" stopOpacity="0" />
+                </radialGradient>
+                <filter id="zoneBevel" x="-40%" y="-40%" width="180%" height="180%">
+                  <feDropShadow dx="0" dy="1.5" stdDeviation="1.4" floodColor="#0b111b" floodOpacity="0.72" />
+                </filter>
               </defs>
 
               <BushfireTerrainLayer payload={payload} />
@@ -235,15 +264,25 @@ export function BushfireMapPanel({
                 const center = centroid(zone.points);
                 const severity = Math.max(0.15, Math.min(1, cell.fireLevel / 100));
                 const selected = focusedZoneId === zone.zoneId;
+                const fireCircumference = 2 * Math.PI * 20;
+                const fireDash = `${Math.round((cell.fireLevel / 100) * fireCircumference)} ${fireCircumference}`;
+                const populationPips = Math.max(1, Math.min(5, Math.round(cell.population / 95)));
+                const zonePoints = zone.points.map((point) => `${point.x},${point.y}`).join(" ");
 
                 return (
                   <g key={zone.zoneId}>
                     <polygon
-                      points={zone.points.map((point) => `${point.x},${point.y}`).join(" ")}
-                      className={`map-zone ${selected ? "focused" : ""}`}
-                      style={{ opacity: 0.68 + severity * 0.24, cursor: "pointer" }}
-                      onPointerDown={() => setFocusedZoneId(zone.zoneId)}
+                      points={zone.points.map((point) => `${point.x + 1.5},${point.y + 2}`).join(" ")}
+                      className="map-zone-shadow"
                     />
+                    <polygon
+                      points={zonePoints}
+                      className={`map-zone ${selected ? "focused" : ""}`}
+                      style={{ opacity: 0.76 + severity * 0.22, cursor: "pointer" }}
+                      onPointerDown={() => setFocusedZoneId(zone.zoneId)}
+                      filter="url(#zoneBevel)"
+                    />
+                    <polyline points={`${zonePoints} ${zone.points[0].x},${zone.points[0].y}`} className="map-zone-rim" />
 
                     {payload.fireFrontContours
                       .filter((contour) => contour.id.endsWith(zone.zoneId))
@@ -259,10 +298,25 @@ export function BushfireMapPanel({
                         />
                       ))}
 
-                    <circle cx={center.x} cy={center.y} r={16 + severity * 18} className="zone-heat" />
-                    <text x={center.x} y={center.y - 12} className="zone-name" textAnchor="middle">{cell.zoneName}</text>
-                    <text x={center.x} y={center.y + 6} className="zone-meta" textAnchor="middle">F{cell.fireLevel}%</text>
-                    <text x={center.x} y={center.y + 21} className="zone-meta" textAnchor="middle">P{cell.population}</text>
+                    <circle cx={center.x} cy={center.y} r={15 + severity * 18} className="zone-heat" fill="url(#zoneHeatCore)" />
+                    <circle cx={center.x} cy={center.y} r={20} className="zone-fire-track" />
+                    <circle
+                      cx={center.x}
+                      cy={center.y}
+                      r={20}
+                      className="zone-fire-ring"
+                      style={{
+                        strokeDasharray: fireDash,
+                        transform: "rotate(-90deg)",
+                        transformOrigin: `${center.x}px ${center.y}px`,
+                      }}
+                    />
+                    <g className="zone-pop-pips">
+                      {Array.from({ length: populationPips }).map((_, idx) => (
+                        <circle key={`${zone.zoneId}_pip_${idx}`} cx={center.x - 10 + idx * 5} cy={center.y + 28} r={1.8} />
+                      ))}
+                    </g>
+                    <text x={center.x} y={center.y - 30} className="zone-name" textAnchor="middle">{cell.zoneName}</text>
 
                     {selected && (
                       <g className="zone-radial-actions" aria-label={`Focused zone ${cell.zoneName}`}>
@@ -302,20 +356,22 @@ export function BushfireMapPanel({
                   x2={sample.x + sample.dx * 24}
                   y2={sample.y + sample.dy * 24}
                   className="wind-sample"
-                  style={{ opacity: 0.18 + sample.strength * 0.34 }}
+                  style={{ opacity: 0.14 + sample.strength * 0.26 }}
                 />
               ))}
 
-              <g className="wind-glyph" transform={`translate(650 34) rotate(${(windAngle * 180) / Math.PI})`}>
+              <g className="wind-glyph" transform={`translate(628 34) rotate(${(windAngle * 180) / Math.PI})`}>
                 <path d="M -24 0 L 16 0 M 16 0 L 6 -8 M 16 0 L 6 8" />
               </g>
 
               {payload.assetSlots.map((slot) => (
-                <g key={slot.id}>
-                  <circle
-                    cx={slot.x}
-                    cy={slot.y}
-                    r={22}
+                <g key={slot.id} transform={`translate(${slot.x} ${slot.y})`}>
+                  <rect
+                    x={-28}
+                    y={-18}
+                    width={56}
+                    height={36}
+                    rx={11}
                     className={`asset-slot ${activeTool === slot.type ? "active" : ""} ${isToolEnabled(slot.type) ? "" : "disabled"}`}
                     role="button"
                     tabIndex={isToolEnabled(slot.type) ? 0 : -1}
@@ -337,7 +393,8 @@ export function BushfireMapPanel({
                     }}
                     style={{ cursor: isToolEnabled(slot.type) ? "grab" : "not-allowed" }}
                   />
-                  <text x={slot.x} y={slot.y + 5} className="asset-slot-label" textAnchor="middle">
+                  <path d={TOOL_ICON_PATH[slot.type]} className="asset-slot-icon" />
+                  <text x={12} y={4} className="asset-slot-label" textAnchor="middle">
                     {TOOL_LABEL[slot.type]}
                   </text>
                 </g>
@@ -345,8 +402,9 @@ export function BushfireMapPanel({
 
               {activeTool && dragPoint && (
                 <g className="drag-proxy">
-                  <circle cx={dragPoint.x} cy={dragPoint.y} r={20} className="drag-token" />
-                  <text x={dragPoint.x} y={dragPoint.y + 5} textAnchor="middle" className="asset-slot-label">
+                  <rect x={dragPoint.x - 22} y={dragPoint.y - 15} width={44} height={30} rx={10} className="drag-token" />
+                  <path d={TOOL_ICON_PATH[activeTool]} className="asset-slot-icon" transform={`translate(${dragPoint.x - 8} ${dragPoint.y})`} />
+                  <text x={dragPoint.x + 11} y={dragPoint.y + 4} textAnchor="middle" className="asset-slot-label">
                     {TOOL_LABEL[activeTool]}
                   </text>
                 </g>
@@ -366,6 +424,20 @@ export function BushfireMapPanel({
           <CanvasFxLayer className="map-fx fx-layer" width={MAP_WIDTH} height={MAP_HEIGHT} draw={draw} />
         </div>
       </LayeredScene>
+
+      {focusedCell && (
+        <div className="zone-focus-hud" aria-live="polite">
+          <span className="zone-focus-name">{focusedCell.zoneName}</span>
+          <div className="zone-focus-meters">
+            <div className="zone-meter fire">
+              <span style={{ width: `${focusedCell.fireLevel}%` }} />
+            </div>
+            <div className="zone-meter pop">
+              <span style={{ width: `${Math.min(100, Math.round((focusedCell.population / 360) * 100))}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

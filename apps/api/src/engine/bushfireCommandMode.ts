@@ -24,6 +24,145 @@ const ZONES = [
   "North Estate",
 ];
 
+const ZONE_GEOMETRY = [
+  {
+    center: { x: 112, y: 88 },
+    polygon: [
+      { x: 38, y: 28 },
+      { x: 176, y: 42 },
+      { x: 201, y: 92 },
+      { x: 170, y: 141 },
+      { x: 72, y: 151 },
+      { x: 28, y: 103 },
+    ],
+  },
+  {
+    center: { x: 356, y: 86 },
+    polygon: [
+      { x: 252, y: 34 },
+      { x: 404, y: 24 },
+      { x: 458, y: 72 },
+      { x: 443, y: 140 },
+      { x: 324, y: 148 },
+      { x: 260, y: 94 },
+    ],
+  },
+  {
+    center: { x: 600, y: 90 },
+    polygon: [
+      { x: 506, y: 36 },
+      { x: 670, y: 46 },
+      { x: 696, y: 102 },
+      { x: 654, y: 154 },
+      { x: 548, y: 148 },
+      { x: 502, y: 94 },
+    ],
+  },
+  {
+    center: { x: 118, y: 205 },
+    polygon: [
+      { x: 32, y: 144 },
+      { x: 191, y: 152 },
+      { x: 212, y: 220 },
+      { x: 172, y: 274 },
+      { x: 74, y: 282 },
+      { x: 28, y: 226 },
+    ],
+  },
+  {
+    center: { x: 356, y: 210 },
+    polygon: [
+      { x: 248, y: 148 },
+      { x: 430, y: 154 },
+      { x: 468, y: 206 },
+      { x: 430, y: 282 },
+      { x: 302, y: 286 },
+      { x: 240, y: 220 },
+    ],
+  },
+  {
+    center: { x: 600, y: 206 },
+    polygon: [
+      { x: 500, y: 150 },
+      { x: 668, y: 156 },
+      { x: 698, y: 222 },
+      { x: 645, y: 286 },
+      { x: 547, y: 282 },
+      { x: 494, y: 222 },
+    ],
+  },
+  {
+    center: { x: 114, y: 326 },
+    polygon: [
+      { x: 40, y: 270 },
+      { x: 174, y: 286 },
+      { x: 200, y: 344 },
+      { x: 150, y: 394 },
+      { x: 66, y: 392 },
+      { x: 26, y: 336 },
+    ],
+  },
+  {
+    center: { x: 356, y: 326 },
+    polygon: [
+      { x: 246, y: 286 },
+      { x: 430, y: 286 },
+      { x: 476, y: 342 },
+      { x: 422, y: 398 },
+      { x: 306, y: 394 },
+      { x: 238, y: 340 },
+    ],
+  },
+  {
+    center: { x: 598, y: 326 },
+    polygon: [
+      { x: 504, y: 284 },
+      { x: 678, y: 268 },
+      { x: 706, y: 340 },
+      { x: 666, y: 400 },
+      { x: 546, y: 394 },
+      { x: 494, y: 338 },
+    ],
+  },
+];
+
+function geometryForCell(cell: BushfireCell) {
+  const idx = Math.max(0, Number.parseInt(cell.id.replace("cell_", ""), 10) - 1);
+  return (
+    ZONE_GEOMETRY[idx] ?? {
+      center: { x: 120 + cell.x * 240, y: 90 + cell.y * 120 },
+      polygon: [
+        { x: 72 + cell.x * 240, y: 42 + cell.y * 120 },
+        { x: 172 + cell.x * 240, y: 42 + cell.y * 120 },
+        { x: 172 + cell.x * 240, y: 132 + cell.y * 120 },
+        { x: 72 + cell.x * 240, y: 132 + cell.y * 120 },
+      ],
+    }
+  );
+}
+
+function polygonCentroid(points: Array<{ x: number; y: number }>) {
+  if (points.length === 0) {
+    return { x: 0, y: 0 };
+  }
+  const total = points.reduce(
+    (acc, point) => ({
+      x: acc.x + point.x,
+      y: acc.y + point.y,
+    }),
+    { x: 0, y: 0 },
+  );
+  return { x: total.x / points.length, y: total.y / points.length };
+}
+
+function scalePolygon(points: Array<{ x: number; y: number }>, factor: number) {
+  const center = polygonCentroid(points);
+  return points.map((point) => ({
+    x: center.x + (point.x - center.x) * factor,
+    y: center.y + (point.y - center.y) * factor,
+  }));
+}
+
 const PANEL_DEFINITIONS: ScenePanelAccessRule[] = [
   { id: "mission_hud", kind: "shared", defaultRoles: ["Observer"] },
   { id: "town_map", kind: "shared", defaultRoles: ["Observer"] },
@@ -115,74 +254,79 @@ function toWindVector(direction: BushfireScenarioState["windDirection"], strengt
 }
 
 function toZonePolygons(cells: BushfireCell[]) {
+  return cells.map((cell) => ({
+    zoneId: cell.id,
+    points: geometryForCell(cell).polygon,
+  }));
+}
+
+function toDragTargets(cells: BushfireCell[]) {
   return cells.map((cell) => {
-    const x = 20 + cell.x * 230;
-    const y = 20 + cell.y * 110;
+    const geometry = geometryForCell(cell);
     return {
       zoneId: cell.id,
-      points: [
-        { x, y },
-        { x: x + 210, y },
-        { x: x + 210, y: y + 92 },
-        { x, y: y + 92 },
-      ],
+      accepts: ["crew", "water", "firebreak", "roadblock"] as const,
+      x: geometry.center.x,
+      y: geometry.center.y,
+      radius: 62,
     };
   });
 }
 
-function toDragTargets(cells: BushfireCell[]) {
-  return cells.map((cell) => ({
-    zoneId: cell.id,
-    accepts: ["crew", "water", "firebreak", "roadblock"] as const,
-    x: 125 + cell.x * 230,
-    y: 68 + cell.y * 110,
-    radius: 48,
-  }));
-}
-
 function toTerrainLayers(cells: BushfireCell[]) {
-  const toCellPolygon = (cell: BushfireCell) => {
-    const x = 20 + cell.x * 230;
-    const y = 20 + cell.y * 110;
-    return [
-      { x, y },
-      { x: x + 210, y },
-      { x: x + 210, y: y + 92 },
-      { x, y: y + 92 },
-    ];
-  };
-
   return [
     {
       id: "terrain_grassland",
       material: "grassland" as const,
-      polygons: cells.filter((cell) => cell.fireLevel < 35).map((cell) => toCellPolygon(cell)),
+      polygons: [
+        [
+          { x: 8, y: 20 },
+          { x: 710, y: 22 },
+          { x: 708, y: 408 },
+          { x: 10, y: 404 },
+        ],
+      ],
       tint: "#4b8a45",
-      elevation: 0.1,
+      elevation: 0.22,
     },
     {
       id: "terrain_forest",
       material: "forest" as const,
-      polygons: cells.filter((cell) => cell.fuel > 70).map((cell) => toCellPolygon(cell)),
+      polygons: cells.filter((cell) => cell.fuel > 62).map((cell) => scalePolygon(geometryForCell(cell).polygon, 0.9)),
       tint: "#2f6f3a",
-      elevation: 0.2,
+      elevation: 0.38,
     },
     {
       id: "terrain_urban",
       material: "urban" as const,
-      polygons: cells.filter((cell) => cell.population > 220).map((cell) => toCellPolygon(cell)),
+      polygons: cells.filter((cell) => cell.population > 170).map((cell) => scalePolygon(geometryForCell(cell).polygon, 0.64)),
       tint: "#6f737b",
       elevation: 0.25,
+    },
+    {
+      id: "terrain_asphalt",
+      material: "asphalt" as const,
+      polygons: cells
+        .filter((cell) => cell.zoneName === "Town Center" || cell.zoneName === "Rail Junction")
+        .map((cell) => scalePolygon(geometryForCell(cell).polygon, 0.48)),
+      tint: "#4f5664",
+      elevation: 0.34,
     },
     {
       id: "terrain_water",
       material: "water" as const,
       polygons: [
         [
-          { x: 12, y: 306 },
-          { x: 238, y: 314 },
-          { x: 282, y: 352 },
-          { x: 12, y: 352 },
+          { x: 10, y: 332 },
+          { x: 212, y: 334 },
+          { x: 258, y: 398 },
+          { x: 10, y: 400 },
+        ],
+        [
+          { x: 410, y: 316 },
+          { x: 512, y: 320 },
+          { x: 532, y: 382 },
+          { x: 426, y: 394 },
         ],
       ],
       tint: "#2b72b0",
@@ -192,16 +336,68 @@ function toTerrainLayers(cells: BushfireCell[]) {
 }
 
 function toRoadGraph(cells: BushfireCell[]) {
-  return cells
-    .map((cell) => {
-      const centerX = 125 + cell.x * 230;
-      const centerY = 68 + cell.y * 110;
-      return [
-        { id: `road_h_${cell.id}`, points: [{ x: centerX - 96, y: centerY }, { x: centerX + 96, y: centerY }], width: 7 },
-        { id: `road_v_${cell.id}`, points: [{ x: centerX, y: centerY - 44 }, { x: centerX, y: centerY + 44 }], width: 6 },
-      ];
-    })
-    .flat();
+  const byGrid = new Map<string, BushfireCell>();
+  for (const cell of cells) {
+    byGrid.set(`${cell.x},${cell.y}`, cell);
+  }
+
+  const segments: Array<{ id: string; points: Array<{ x: number; y: number }>; width: number }> = [];
+  for (const cell of cells) {
+    const current = geometryForCell(cell).center;
+    const right = byGrid.get(`${cell.x + 1},${cell.y}`);
+    const down = byGrid.get(`${cell.x},${cell.y + 1}`);
+
+    if (right) {
+      const target = geometryForCell(right).center;
+      const arc = cell.y % 2 === 0 ? -14 : 14;
+      segments.push({
+        id: `road_h_${cell.id}_${right.id}`,
+        points: [
+          { x: current.x, y: current.y },
+          { x: (current.x + target.x) / 2, y: (current.y + target.y) / 2 + arc },
+          { x: target.x, y: target.y },
+        ],
+        width: 9,
+      });
+    }
+
+    if (down) {
+      const target = geometryForCell(down).center;
+      const arc = cell.x % 2 === 0 ? 12 : -10;
+      segments.push({
+        id: `road_v_${cell.id}_${down.id}`,
+        points: [
+          { x: current.x, y: current.y },
+          { x: (current.x + target.x) / 2 + arc, y: (current.y + target.y) / 2 },
+          { x: target.x, y: target.y },
+        ],
+        width: 8,
+      });
+    }
+  }
+
+  segments.push({
+    id: "road_arterial_north",
+    points: [
+      { x: 30, y: 108 },
+      { x: 230, y: 94 },
+      { x: 468, y: 96 },
+      { x: 698, y: 110 },
+    ],
+    width: 10,
+  });
+  segments.push({
+    id: "road_arterial_south",
+    points: [
+      { x: 24, y: 296 },
+      { x: 252, y: 286 },
+      { x: 468, y: 300 },
+      { x: 706, y: 286 },
+    ],
+    width: 11,
+  });
+
+  return segments;
 }
 
 function toRiverPaths() {
@@ -209,58 +405,87 @@ function toRiverPaths() {
     {
       id: "river_main",
       points: [
-        { x: 18, y: 292 },
-        { x: 128, y: 272 },
-        { x: 262, y: 292 },
-        { x: 400, y: 278 },
-        { x: 574, y: 300 },
-        { x: 708, y: 286 },
+        { x: 14, y: 324 },
+        { x: 144, y: 302 },
+        { x: 286, y: 322 },
+        { x: 418, y: 304 },
+        { x: 568, y: 328 },
+        { x: 706, y: 312 },
       ],
-      width: 24,
+      width: 26,
+    },
+    {
+      id: "river_tributary",
+      points: [
+        { x: 470, y: 18 },
+        { x: 438, y: 94 },
+        { x: 452, y: 162 },
+        { x: 502, y: 236 },
+        { x: 510, y: 318 },
+      ],
+      width: 12,
     },
   ];
 }
 
 function toLandmarkSprites(cells: BushfireCell[]) {
-  return cells.slice(0, 6).map((cell, idx) => ({
-    id: `landmark_${cell.id}`,
-    kind: (["hospital", "school", "depot", "station"][idx % 4] as "hospital" | "school" | "depot" | "station"),
-    x: 72 + cell.x * 230 + ((idx % 2) * 28),
-    y: 46 + cell.y * 110 + ((idx % 3) * 12),
-    scale: 0.8 + (idx % 3) * 0.1,
-    assetId: `map-landmark-${idx % 4}`,
-  }));
+  return cells.map((cell, idx) => {
+    const center = geometryForCell(cell).center;
+    return {
+      id: `landmark_${cell.id}`,
+      kind: (["hospital", "school", "depot", "station"][idx % 4] as "hospital" | "school" | "depot" | "station"),
+      x: center.x + (idx % 2 === 0 ? -26 : 30),
+      y: center.y + (idx % 3 === 0 ? -24 : 22),
+      scale: 0.82 + ((idx + 1) % 3) * 0.12,
+      assetId: `map-landmark-${idx % 4}`,
+    };
+  });
 }
 
 function toTreeClusters(cells: BushfireCell[]) {
-  return cells.map((cell, idx) => ({
-    id: `trees_${cell.id}`,
-    x: 62 + cell.x * 230 + ((idx % 3) * 20),
-    y: 42 + cell.y * 110 + ((idx % 4) * 10),
-    radius: 18 + (cell.fuel % 20),
-    density: Math.max(0.2, Math.min(1, cell.fuel / 100)),
-  }));
+  return cells
+    .map((cell, idx) => {
+      const center = geometryForCell(cell).center;
+      return [
+        {
+          id: `trees_${cell.id}_a`,
+          x: center.x - 42 + (idx % 2) * 14,
+          y: center.y - 34 + (idx % 3) * 8,
+          radius: 18 + (cell.fuel % 18),
+          density: Math.max(0.2, Math.min(1, cell.fuel / 100)),
+        },
+        {
+          id: `trees_${cell.id}_b`,
+          x: center.x + 36 - (idx % 2) * 10,
+          y: center.y + 28 - (idx % 3) * 6,
+          radius: 14 + ((cell.fuel + 8) % 16),
+          density: Math.max(0.18, Math.min(1, cell.fuel / 110)),
+        },
+      ];
+    })
+    .flat();
 }
 
 function toFireFrontContours(cells: BushfireCell[]) {
   return cells
     .filter((cell) => cell.fireLevel > 0)
     .map((cell) => {
-      const cx = 125 + cell.x * 230;
-      const cy = 68 + cell.y * 110;
+      const center = geometryForCell(cell).center;
+      const baseRadius = 16 + Math.round((cell.fireLevel / 100) * 26);
+      const points: Array<{ x: number; y: number }> = [];
+      const vertices = 8;
+      for (let i = 0; i <= vertices; i += 1) {
+        const angle = (Math.PI * 2 * i) / vertices;
+        const wobble = 0.72 + (((i + cell.x * 2 + cell.y * 3) % 5) * 0.1);
+        const x = center.x + Math.cos(angle) * baseRadius * wobble;
+        const y = center.y + Math.sin(angle) * baseRadius * wobble * 0.82;
+        points.push({ x, y });
+      }
       return {
         id: `contour_${cell.id}`,
-        points: [
-          { x: cx - 30, y: cy - 4 },
-          { x: cx - 8, y: cy - 24 },
-          { x: cx + 24, y: cy - 10 },
-          { x: cx + 34, y: cy + 8 },
-          { x: cx + 8, y: cy + 24 },
-          { x: cx - 20, y: cy + 20 },
-          { x: cx - 30, y: cy - 4 },
-        ],
+        points,
         intensity: Math.max(0.1, Math.min(1, cell.fireLevel / 100)),
-        phase: (cell.x + cell.y) * 0.5,
+        phase: (cell.x + cell.y) * 0.7 + cell.fireLevel / 24,
       };
     });
 }
@@ -268,14 +493,15 @@ function toFireFrontContours(cells: BushfireCell[]) {
 function toWindField(direction: BushfireScenarioState["windDirection"], strength: number) {
   const vector = toWindVector(direction, strength);
   const field: Array<{ x: number; y: number; dx: number; dy: number; strength: number }> = [];
-  for (let y = 40; y <= 320; y += 56) {
-    for (let x = 40; x <= 680; x += 80) {
+  for (let y = 42; y <= 388; y += 48) {
+    for (let x = 36; x <= 688; x += 72) {
+      const turbulence = (((x * 13 + y * 7) % 11) - 5) * 0.03;
       field.push({
         x,
         y,
-        dx: vector.dx,
-        dy: vector.dy,
-        strength: Math.max(0.1, Math.min(1, strength / 3 + ((x + y) % 5) * 0.03)),
+        dx: vector.dx + turbulence,
+        dy: vector.dy - turbulence * 0.6,
+        strength: Math.max(0.12, Math.min(1, strength / 3 + ((x + y) % 5) * 0.03)),
       });
     }
   }
@@ -285,13 +511,14 @@ function toWindField(direction: BushfireScenarioState["windDirection"], strength
 function toToolDropZones(cells: BushfireCell[]) {
   return cells
     .map((cell) => {
-      const cx = 125 + cell.x * 230;
-      const cy = 68 + cell.y * 110;
+      const center = geometryForCell(cell).center;
+      const cx = center.x;
+      const cy = center.y;
       return [
-        { id: `drop_crew_${cell.id}`, zoneId: cell.id, tool: "crew" as const, x: cx - 34, y: cy - 34, radius: 14 },
-        { id: `drop_water_${cell.id}`, zoneId: cell.id, tool: "water" as const, x: cx + 34, y: cy - 34, radius: 14 },
-        { id: `drop_firebreak_${cell.id}`, zoneId: cell.id, tool: "firebreak" as const, x: cx - 34, y: cy + 34, radius: 14 },
-        { id: `drop_roadblock_${cell.id}`, zoneId: cell.id, tool: "roadblock" as const, x: cx + 34, y: cy + 34, radius: 14 },
+        { id: `drop_crew_${cell.id}`, zoneId: cell.id, tool: "crew" as const, x: cx - 40, y: cy - 34, radius: 15 },
+        { id: `drop_water_${cell.id}`, zoneId: cell.id, tool: "water" as const, x: cx + 38, y: cy - 34, radius: 15 },
+        { id: `drop_firebreak_${cell.id}`, zoneId: cell.id, tool: "firebreak" as const, x: cx - 38, y: cy + 34, radius: 15 },
+        { id: `drop_roadblock_${cell.id}`, zoneId: cell.id, tool: "roadblock" as const, x: cx + 40, y: cy + 34, radius: 15 },
       ];
     })
     .flat();
@@ -584,10 +811,10 @@ export class BushfireCommandMode implements GameModeEngine {
         cells: scenario.cells,
         zonePolygons: toZonePolygons(scenario.cells),
         assetSlots: [
-          { id: "slot_crew", type: "crew", x: 40, y: 330 },
-          { id: "slot_water", type: "water", x: 120, y: 330 },
-          { id: "slot_firebreak", type: "firebreak", x: 200, y: 330 },
-          { id: "slot_roadblock", type: "roadblock", x: 280, y: 330 },
+          { id: "slot_crew", type: "crew", x: 668, y: 78 },
+          { id: "slot_water", type: "water", x: 668, y: 138 },
+          { id: "slot_firebreak", type: "firebreak", x: 668, y: 198 },
+          { id: "slot_roadblock", type: "roadblock", x: 668, y: 258 },
         ],
         dragTargets: toDragTargets(scenario.cells).map((target) => ({
           zoneId: target.zoneId,

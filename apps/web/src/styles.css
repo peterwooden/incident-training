@@ -298,7 +298,15 @@ ul {
 .town-map-svg {
   display: block;
   width: 100%;
+}
+
+.geometry-layer {
   height: auto;
+}
+
+.map-fx,
+.town-map-svg {
+  height: 100%;
 }
 
 .fx-layer,
@@ -319,9 +327,14 @@ ul {
   z-index: 6;
 }
 
-.geometry-layer,
-.town-map-svg {
+.geometry-layer {
   position: relative;
+  z-index: 5;
+}
+
+.town-map-svg {
+  position: absolute;
+  inset: 0;
   z-index: 5;
 }
 
@@ -700,35 +713,75 @@ ul {
 }
 
 .map-stage {
-  min-height: 360px;
+  min-height: 0;
+}
+
+.bushfire-map-panel .visual-stage {
+  background:
+    radial-gradient(circle at 18% 8%, #5a9b5e55, transparent 36%),
+    radial-gradient(circle at 82% 0%, #6ea4c03f, transparent 42%),
+    linear-gradient(165deg, #1b3b2f, #17352e 50%, #122631);
 }
 
 .map-zone {
   fill: url(#zoneFill);
-  stroke: #ffffff2d;
-  stroke-width: 1.4;
+  stroke: #ffffff40;
+  stroke-width: 1.2;
   cursor: pointer;
+}
+
+.map-zone-shadow {
+  fill: #03070fcc;
+  opacity: 0.44;
+  pointer-events: none;
+}
+
+.map-zone-rim {
+  fill: none;
+  stroke: url(#zoneRim);
+  stroke-width: 1.2;
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .map-zone.focused {
   stroke: #ffd291;
-  stroke-width: 2;
+  stroke-width: 2.2;
 }
 
 .zone-heat {
-  fill: #ff7f4e38;
   pointer-events: none;
+  mix-blend-mode: screen;
 }
 
 .zone-name {
-  fill: #fff0d8;
-  font-size: 12px;
+  fill: #fff8de;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 1px #05121e;
 }
 
-.zone-meta {
-  fill: #d3dbec;
-  font-size: 10px;
+.zone-fire-track,
+.zone-fire-ring {
+  fill: none;
+  stroke-width: 3.2;
+  pointer-events: none;
+}
+
+.zone-fire-track {
+  stroke: #ffffff20;
+}
+
+.zone-fire-ring {
+  stroke: #ff9c68;
+  filter: drop-shadow(0 0 5px #ff7f4996);
+}
+
+.zone-pop-pips {
+  fill: #cde5c6;
+  opacity: 0.85;
+  pointer-events: none;
 }
 
 .zone-radial-actions {
@@ -736,13 +789,14 @@ ul {
 }
 
 .radial-tool {
-  fill: #13213a;
+  fill: #142538;
   stroke: #ffffff4b;
   cursor: pointer;
+  filter: drop-shadow(0 2px 4px #00000066);
 }
 
 .radial-tool:hover {
-  fill: #1e3558;
+  fill: #244369;
 }
 
 .radial-tool.disabled {
@@ -757,21 +811,22 @@ ul {
 }
 
 .wind-glyph path {
-  stroke: #ffd8a2;
+  stroke: #f4d6a4;
   stroke-width: 3;
   fill: none;
-  opacity: 0.75;
+  opacity: 0.82;
 }
 
 .asset-slot {
-  fill: #0f1b2f;
-  stroke: #ffffff47;
-  stroke-width: 2;
+  fill: #0f2238;
+  stroke: #8ec6ff7f;
+  stroke-width: 1.8;
   cursor: grab;
+  filter: drop-shadow(0 2px 3px #00000066);
 }
 
 .asset-slot.active {
-  fill: #224067;
+  fill: #244c73;
   stroke: #ffd19c;
 }
 
@@ -781,15 +836,70 @@ ul {
 }
 
 .asset-slot-label {
-  fill: #f5ead8;
-  font-size: 10px;
+  fill: #f4e8d2;
+  font-size: 9px;
   font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.asset-slot-icon {
+  fill: none;
+  stroke: #dceaf8;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: translate(-9px, 0);
+  pointer-events: none;
 }
 
 .drag-token {
-  fill: #284c79b8;
+  fill: #28517abf;
   stroke: #ffd59d;
-  stroke-width: 2;
+  stroke-width: 1.8;
+}
+
+.zone-focus-hud {
+  margin-top: 0.5rem;
+  border: 1px solid #ffffff1f;
+  border-radius: 12px;
+  padding: 0.4rem 0.5rem 0.48rem;
+  background: linear-gradient(130deg, #0f1c2eb8, #121f28b8);
+  display: grid;
+  gap: 0.32rem;
+}
+
+.zone-focus-name {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #f7ebcd;
+}
+
+.zone-focus-meters {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.zone-meter {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid #ffffff21;
+  background: #0b1220;
+  overflow: hidden;
+}
+
+.zone-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.zone-meter.fire span {
+  background: linear-gradient(90deg, #f7a25b, #e64f39);
+}
+
+.zone-meter.pop span {
+  background: linear-gradient(90deg, #6fc9d8, #5f88d6);
 }
 
 .ops-stage,
@@ -1162,6 +1272,26 @@ ul {
   min-height: inherit;
 }
 
+.map-stage-root {
+  aspect-ratio: 720 / 420;
+  min-height: 0;
+}
+
+.map-stage-root > .depth-parallax-group {
+  position: absolute;
+  inset: 0;
+}
+
+.map-stage-root::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(112deg, transparent 30%, #b8ffe21f 50%, transparent 70%);
+  animation: mapSweep 10s ease-in-out infinite;
+}
+
 .bomb-cinematic-pcb,
 .bomb-cinematic-scratches,
 .bomb-cinematic-reflection,
@@ -1197,12 +1327,12 @@ ul {
 .map-backdrop,
 .map-water-mask {
   object-fit: cover;
-  opacity: 0.3;
+  opacity: 0.2;
 }
 
 .map-water-mask {
   mix-blend-mode: screen;
-  opacity: 0.46;
+  opacity: 0.56;
 }
 
 .energy-arc {
@@ -1307,58 +1437,128 @@ ul {
   justify-content: flex-end;
 }
 
-.terrain-layer polygon {
-  stroke: #ffffff1f;
+.terrain-patch-shadow {
+  fill: #02060f;
+  pointer-events: none;
+}
+
+.terrain-patch-fill {
+  stroke: #ffffff21;
   stroke-width: 0.8;
 }
 
-.terrain-layer.grassland polygon {
-  fill: #4f8f45;
+.terrain-patch-rim {
+  fill: none;
+  stroke: #ffffff1a;
+  stroke-width: 1;
+  pointer-events: none;
 }
 
-.terrain-layer.forest polygon {
-  fill: #366b34;
+.terrain-layer.grassland .terrain-patch-fill {
+  fill: #5f9f55;
 }
 
-.terrain-layer.urban polygon {
+.terrain-layer.forest .terrain-patch-fill {
+  fill: #3a7a3b;
+}
+
+.terrain-layer.urban .terrain-patch-fill {
   fill: #6f737b;
 }
 
-.terrain-layer.water polygon {
+.terrain-layer.water .terrain-patch-fill {
   fill: #3175b5;
+}
+
+.terrain-layer.asphalt .terrain-patch-fill {
+  fill: #495266;
+}
+
+.terrain-layers {
+  animation: canopyDrift 9.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.terrain-road-shadow {
+  fill: none;
+  stroke: #04070f8c;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .terrain-road {
   fill: none;
-  stroke: #4f5664;
+  stroke: #525d6e;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.65;
+  opacity: 0.85;
+}
+
+.terrain-road-centerline {
+  fill: none;
+  stroke: #c9d3e2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 8 8;
+  opacity: 0.5;
+}
+
+.terrain-river-bed {
+  fill: none;
+  stroke: #1a3f63;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.42;
 }
 
 .terrain-river {
   fill: none;
-  stroke: #3c9ce0;
+  stroke: #2f89cf;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.46;
+  opacity: 0.62;
 }
 
-.terrain-trees {
+.terrain-river-highlight {
+  fill: none;
+  stroke: #9fd8ff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.62;
+}
+
+.terrain-tree-shadow {
+  fill: #10231a;
+  opacity: 0.45;
+}
+
+.terrain-tree-canopy {
   fill: #2e5f31;
+  stroke: #486f3f;
+  stroke-width: 0.6;
 }
 
-.terrain-landmark rect {
+.terrain-landmark-shadow {
+  fill: #04071066;
+}
+
+.terrain-landmark-disc {
   fill: #dce8f8;
   stroke: #283f5b;
+  stroke-width: 1.2;
+}
+
+.terrain-landmark-glyph {
+  fill: #20364f;
+  stroke: #20364f;
   stroke-width: 1;
 }
 
-.terrain-landmark.hospital rect {
+.terrain-landmark.hospital .terrain-landmark-disc {
   fill: #ffd6d6;
 }
 
-.terrain-landmark.station rect {
+.terrain-landmark.station .terrain-landmark-disc {
   fill: #d6e0ff;
 }
 
@@ -1428,6 +1628,36 @@ ul {
 
   100% {
     transform: translateY(0);
+  }
+}
+
+@keyframes canopyDrift {
+  0% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-1.2px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes mapSweep {
+  0% {
+    transform: translateX(-26%);
+    opacity: 0.05;
+  }
+
+  40% {
+    opacity: 0.18;
+  }
+
+  100% {
+    transform: translateX(30%);
+    opacity: 0.05;
   }
 }
 
