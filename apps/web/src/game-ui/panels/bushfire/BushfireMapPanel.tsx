@@ -236,9 +236,9 @@ export function BushfireMapPanel({
             >
               <defs>
                 <linearGradient id="zoneFill" x1="0" y1="0" x2="0.92" y2="1">
-                  <stop offset="0%" stopColor="#3e6544" />
-                  <stop offset="45%" stopColor="#29443b" />
-                  <stop offset="100%" stopColor="#1d2d31" />
+                  <stop offset="0%" stopColor="#4f7d58" stopOpacity="0.36" />
+                  <stop offset="45%" stopColor="#2d4a40" stopOpacity="0.42" />
+                  <stop offset="100%" stopColor="#1c2d31" stopOpacity="0.5" />
                 </linearGradient>
                 <linearGradient id="zoneRim" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor="#f2f8d6" stopOpacity="0.44" />
@@ -278,7 +278,7 @@ export function BushfireMapPanel({
                     <polygon
                       points={zonePoints}
                       className={`map-zone ${selected ? "focused" : ""}`}
-                      style={{ opacity: 0.76 + severity * 0.22, cursor: "pointer" }}
+                      style={{ opacity: 0.42 + severity * 0.14, cursor: "pointer" }}
                       onPointerDown={() => setFocusedZoneId(zone.zoneId)}
                       filter="url(#zoneBevel)"
                     />

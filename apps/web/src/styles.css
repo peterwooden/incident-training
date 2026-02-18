@@ -732,7 +732,7 @@ ul {
 
 .map-zone-shadow {
   fill: #03070fcc;
-  opacity: 0.44;
+  opacity: 0.22;
   pointer-events: none;
 }
 
@@ -1294,6 +1294,7 @@ ul {
 
 .bomb-cinematic-pcb,
 .bomb-cinematic-scratches,
+.bomb-cinematic-shell,
 .bomb-cinematic-reflection,
 .map-backdrop,
 .map-water-mask,
@@ -1305,11 +1306,17 @@ ul {
   pointer-events: none;
 }
 
+.bomb-cinematic-shell {
+  object-fit: cover;
+  opacity: 0.36;
+  mix-blend-mode: screen;
+}
+
 .bomb-cinematic-pcb,
 .bomb-cinematic-scratches {
   object-fit: cover;
-  opacity: 0.34;
-  mix-blend-mode: screen;
+  opacity: 0.46;
+  mix-blend-mode: lighten;
 }
 
 .bomb-cinematic-reflection {
@@ -1320,19 +1327,19 @@ ul {
 
 .manual-desk-backdrop {
   object-fit: cover;
-  opacity: 0.24;
-  mix-blend-mode: multiply;
+  opacity: 0.46;
+  mix-blend-mode: overlay;
 }
 
 .map-backdrop,
 .map-water-mask {
   object-fit: cover;
-  opacity: 0.2;
+  opacity: 0.62;
 }
 
 .map-water-mask {
   mix-blend-mode: screen;
-  opacity: 0.56;
+  opacity: 0.3;
 }
 
 .energy-arc {
@@ -1456,22 +1463,27 @@ ul {
 
 .terrain-layer.grassland .terrain-patch-fill {
   fill: #5f9f55;
+  opacity: 0.22;
 }
 
 .terrain-layer.forest .terrain-patch-fill {
   fill: #3a7a3b;
+  opacity: 0.28;
 }
 
 .terrain-layer.urban .terrain-patch-fill {
   fill: #6f737b;
+  opacity: 0.28;
 }
 
 .terrain-layer.water .terrain-patch-fill {
   fill: #3175b5;
+  opacity: 0.3;
 }
 
 .terrain-layer.asphalt .terrain-patch-fill {
   fill: #495266;
+  opacity: 0.36;
 }
 
 .terrain-layers {

@@ -8,6 +8,7 @@ interface BombCinematicBackdropProps {
 export function BombCinematicBackdrop({ grimeAmount, reflectionStrength }: BombCinematicBackdropProps) {
   return (
     <>
+      <img src={getVisualAsset("bomb-chassis-normal")} className="bomb-cinematic-shell" alt="" aria-hidden="true" />
       <img src={getVisualAsset("bomb-pcb-motif")} className="bomb-cinematic-pcb" alt="" aria-hidden="true" />
       <img
         src={getVisualAsset("bomb-scratches")}
