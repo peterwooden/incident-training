@@ -739,6 +739,18 @@ ul {
   flex-wrap: wrap;
 }
 
+.stage-intermission-banner {
+  margin-top: 0.4rem;
+  border: 1px solid #ffcf8a6a;
+  border-radius: 10px;
+  padding: 0.36rem 0.5rem;
+  background: #2b21149f;
+  display: grid;
+  gap: 0.08rem;
+  font-size: 0.72rem;
+  color: #ffe8c2;
+}
+
 .panel-annotation {
   margin: 0.15rem 0 0.4rem;
   font-size: 0.78rem;

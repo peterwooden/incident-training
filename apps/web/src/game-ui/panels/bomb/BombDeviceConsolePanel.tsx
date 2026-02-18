@@ -451,6 +451,13 @@ export function BombDeviceConsolePanel({
         </div>
       </LayeredScene>
 
+      {payload.stageStatus === "intermission" && (
+        <div className="stage-intermission-banner" role="status">
+          <strong>Stage Transition</strong>
+          <span>Next module loading. Hold communication discipline.</span>
+        </div>
+      )}
+
       <div className="sequence-pips" aria-label="Entered sequence">
         {enteredSequence.map((symbol, idx) => (
           <span key={`${symbol}-${idx}`} className="sequence-pip">{symbol}</span>
