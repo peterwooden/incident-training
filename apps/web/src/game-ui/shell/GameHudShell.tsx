@@ -106,18 +106,33 @@ export function GameHudShell({
       case "mission_hud": {
         const payload = panel.payload as MissionHudPayload;
         return (
-          <section className="scene-panel mission-hud-panel">
-            <header>
+          <section className="scene-panel mission-hud-panel visual-heavy">
+            <header className="panel-chip-row">
               <h3>{panel.title}</h3>
-              <p>{payload.summary}</p>
+              <div className="chip-strip">
+                <span className="chip warning">{payload.timerSec}s</span>
+                <span className="chip">P{payload.pressure}</span>
+                <span className="chip good">S{payload.score}</span>
+              </div>
             </header>
-            <div className="mission-stats">
-              <span>Timer {payload.timerSec}s</span>
-              <span>Pressure {payload.pressure}</span>
-              <span>Score {payload.score}</span>
-              <span>Status {payload.status}</span>
+
+            <div className="visual-stage mission-stage">
+              <svg viewBox="0 0 360 170" className="geometry-layer" aria-label="Mission status">
+                <circle cx={70} cy={84} r={50} className="hud-ring" />
+                <circle
+                  cx={70}
+                  cy={84}
+                  r={50}
+                  className="hud-ring-progress"
+                  style={{ strokeDasharray: `${Math.round((payload.pressure / 100) * 314)} 314` }}
+                />
+                <text x={70} y={90} textAnchor="middle" className="hud-value">{payload.pressure}</text>
+                <text x={146} y={50} className="hud-summary">{payload.summary}</text>
+                <text x={146} y={78} className="hud-slack">{payload.slackReminder}</text>
+                <rect x={146} y={96} width={186} height={44} rx={8} className="hud-status-pill" />
+                <text x={156} y={124} className="hud-status-text">status {payload.status}</text>
+              </svg>
             </div>
-            <p className="slack-reminder">{payload.slackReminder}</p>
           </section>
         );
       }
@@ -154,6 +169,8 @@ export function GameHudShell({
           <BushfireMapPanel
             payload={panel.payload as BushfireMapPayload}
             locked={panel.locked.locked || state.status !== "running"}
+            canUseFireTools={Boolean(state.panelDeck.panelsById.fire_ops_console) || isGm}
+            canUsePoliceTools={Boolean(state.panelDeck.panelsById.police_ops_console) || isGm}
             onDeployCrew={(cellId) => onAction("bushfire_deploy_fire_crew", "fire_ops_console", { cellId })}
             onDropWater={(cellId) => onAction("bushfire_drop_water", "fire_ops_console", { cellId })}
             onCreateFirebreak={(cellId) => onAction("bushfire_create_firebreak", "fire_ops_console", { cellId })}
@@ -207,20 +224,26 @@ export function GameHudShell({
     <main className="game-shell">
       <section className="game-topbar">
         <div>
-          <p className="eyebrow">Room {state.roomCode}</p>
-          <h1>{state.mode === "bomb-defusal" ? "Bomb Defusal Simulation" : "Bushfire Command Simulation"}</h1>
-          <p>Role: {me?.role ?? "Unknown"} | Status: {state.status}</p>
+          <p className="eyebrow">ROOM {state.roomCode}</p>
+          <h1>{state.mode === "bomb-defusal" ? "Bomb Defusal" : "Bushfire Command"}</h1>
+          <div className="topbar-chipline">
+            <span className="chip">role {me?.role ?? "unknown"}</span>
+            <span className={`chip ${state.status === "running" ? "good" : "supporting"}`}>{state.status}</span>
+          </div>
         </div>
+
         <div className="topbar-controls">
-          <button className="secondary" onClick={() => navigator.clipboard.writeText(state.roomCode)}>
-            Copy Room Code
+          <button className="secondary mini" onClick={() => navigator.clipboard.writeText(state.roomCode)}>
+            Copy Code
           </button>
-          <label className="audio-control">
+
+          <label className="audio-control mini-switch">
             <input type="checkbox" checked={settings.muted} onChange={(e) => setMuted(e.target.checked)} />
-            Mute
+            mute
           </label>
-          <label>
-            Volume
+
+          <label className="volume-inline">
+            vol
             <input
               type="range"
               min={0}
@@ -230,21 +253,22 @@ export function GameHudShell({
               onChange={(e) => setVolume(Number(e.target.value))}
             />
           </label>
+
           {isGm && state.status === "lobby" && (
             <div className="start-controls">
               {missingRequiredRoles.length > 0 && (
-                <p className="warning-text">Missing roles: {missingRequiredRoles.join(", ")}</p>
+                <p className="warning-text">Missing: {missingRequiredRoles.join(", ")}</p>
               )}
-              <label>
+              <label className="mini-switch">
                 <input
                   type="checkbox"
                   checked={forceStart}
                   onChange={(event) => setForceStart(event.target.checked)}
                 />
-                Force start (bypass missing roles)
+                force start
               </label>
               <button onClick={() => onStart(forceStart)} disabled={missingRequiredRoles.length > 0 && !forceStart}>
-                Launch Scenario
+                Launch
               </button>
             </div>
           )}
@@ -255,17 +279,17 @@ export function GameHudShell({
 
       <section className="timeline-strip">
         <h3>Live Feed</h3>
-        <ul>
+        <div className="timeline-chip-lane">
           {state.timeline
             .slice()
             .reverse()
             .slice(0, 8)
             .map((entry) => (
-              <li key={entry.id}>
+              <span key={entry.id} className={`timeline-chip ${entry.kind}`}>
                 {new Date(entry.atEpochMs).toLocaleTimeString()} {entry.message}
-              </li>
+              </span>
             ))}
-        </ul>
+        </div>
       </section>
 
       {error && <p className="error">{error}</p>}

@@ -156,6 +156,14 @@ export interface ScenePanelLockState {
 }
 
 export type AudioCue = "warning" | "strike" | "spread" | "success" | "fail";
+export type RenderMode = "svg" | "canvas" | "hybrid";
+export type InteractionMode = "direct-gesture" | "diegetic-control" | "drawer-control";
+export type OverlayTextLevel = "minimal" | "supporting" | "dense";
+
+export interface Point2D {
+  x: number;
+  y: number;
+}
 
 export interface MissionHudPayload {
   timerSec: number;
@@ -164,6 +172,43 @@ export interface MissionHudPayload {
   status: GameStatus;
   summary: string;
   slackReminder: string;
+}
+
+export interface WireAnchor {
+  wireId: string;
+  start: Point2D;
+  end: Point2D;
+}
+
+export interface CuttableSegment {
+  id: string;
+  wireId: string;
+  start: Point2D;
+  end: Point2D;
+  thickness: number;
+}
+
+export interface ModuleBounds {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface StateLight {
+  id: string;
+  x: number;
+  y: number;
+  color: "green" | "amber" | "red";
+  active: boolean;
+}
+
+export interface SymbolNode {
+  symbol: string;
+  x: number;
+  y: number;
+  radius: number;
 }
 
 export interface BombDeviceConsolePayload {
@@ -176,11 +221,47 @@ export interface BombDeviceConsolePayload {
     availableSymbols: string[];
     enteredSequence: string[];
   };
+  wireAnchors: WireAnchor[];
+  cuttableSegments: CuttableSegment[];
+  moduleBounds: ModuleBounds[];
+  stateLights: StateLight[];
+  symbolNodes: SymbolNode[];
+  shakeIntensity: number;
+  /** @deprecated Use geometry fields and lights, this is fallback-only text */
   diagnostics: string[];
 }
 
+export interface ManualHotspot {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+  detail: string;
+}
+
+export interface ManualCalloutPin {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+}
+
+export interface ManualSpread {
+  id: string;
+  title: string;
+  diagramAssets: Array<{ id: string; type: "wire" | "glyph" | "safety"; points: Point2D[] }>;
+  hotspots: ManualHotspot[];
+  calloutPins: ManualCalloutPin[];
+}
+
 export interface BombRulebookPayload {
+  spreads: ManualSpread[];
+  activeSpreadId?: string;
+  /** @deprecated fallback-only */
   pages: BombScenarioState["manualPages"];
+  /** @deprecated fallback-only */
   index: string[];
   hint: string;
 }
@@ -196,12 +277,44 @@ export interface BombCoordinationBoardPayload {
   recentMessages: Array<{ atEpochMs: number; message: string }>;
 }
 
+export type BushfireToolType = "crew" | "water" | "firebreak" | "roadblock";
+
+export interface ZonePolygon {
+  zoneId: string;
+  points: Point2D[];
+}
+
+export interface AssetSlot {
+  id: string;
+  type: BushfireToolType;
+  x: number;
+  y: number;
+}
+
+export interface DragTarget {
+  zoneId: string;
+  accepts: BushfireToolType[];
+  x: number;
+  y: number;
+  radius: number;
+}
+
+export interface WindVector {
+  dx: number;
+  dy: number;
+}
+
 export interface BushfireMapPayload {
   windDirection: BushfireScenarioState["windDirection"];
   windStrength: BushfireScenarioState["windStrength"];
   containment: number;
   anxiety: number;
   cells: BushfireCell[];
+  zonePolygons: ZonePolygon[];
+  assetSlots: AssetSlot[];
+  dragTargets: DragTarget[];
+  windVector: WindVector;
+  heatFieldSeed: number;
 }
 
 export interface FireOpsPayload {
@@ -234,6 +347,10 @@ export interface GmOrchestratorPayload {
   panelLocks: Partial<Record<ScenePanelId, ScenePanelLockState>>;
   simulatedRole?: IncidentRole;
   roleOptions: IncidentRole[];
+  cameraTargets: Array<{ id: string; label: string; x: number; y: number; urgency: number }>;
+  riskHotspots: Array<{ id: string; x: number; y: number; severity: number; label: string }>;
+  drawerSections: Array<{ id: "roles" | "access" | "locks" | "simulate"; title: string }>;
+  selectionContext?: { selectedPlayerId?: string; selectedPanelId?: ScenePanelId };
 }
 
 export interface DebriefReplayPayload {
@@ -256,12 +373,21 @@ export interface ScenePanelPayloadMap {
   debrief_replay: DebriefReplayPayload;
 }
 
+export type LiveGameplayPanelId = Exclude<ScenePanelId, "gm_orchestrator" | "debrief_replay">;
+export type OverlayTextLevelForPanel<K extends ScenePanelId> = K extends LiveGameplayPanelId
+  ? Exclude<OverlayTextLevel, "dense">
+  : OverlayTextLevel;
+
 export interface ScenePanelView<K extends ScenePanelId = ScenePanelId> {
   id: K;
   kind: ScenePanelKind;
   title: string;
   subtitle?: string;
   priority: number;
+  visualPriority: number;
+  renderMode: RenderMode;
+  interactionMode: InteractionMode;
+  overlayTextLevel: OverlayTextLevelForPanel<K>;
   locked: ScenePanelLockState;
   audioCue?: AudioCue;
   payload: ScenePanelPayloadMap[K];

@@ -106,6 +106,40 @@ function burningZoneIds(cells: BushfireCell[]): string[] {
   return cells.filter((cell) => cell.fireLevel > 30).map((cell) => cell.id);
 }
 
+function toWindVector(direction: BushfireScenarioState["windDirection"], strength: number): { dx: number; dy: number } {
+  const amplitude = Math.max(0.2, Math.min(1, strength / 3));
+  if (direction === "N") return { dx: 0, dy: -amplitude };
+  if (direction === "S") return { dx: 0, dy: amplitude };
+  if (direction === "E") return { dx: amplitude, dy: 0 };
+  return { dx: -amplitude, dy: 0 };
+}
+
+function toZonePolygons(cells: BushfireCell[]) {
+  return cells.map((cell) => {
+    const x = 20 + cell.x * 230;
+    const y = 20 + cell.y * 110;
+    return {
+      zoneId: cell.id,
+      points: [
+        { x, y },
+        { x: x + 210, y },
+        { x: x + 210, y: y + 92 },
+        { x, y: y + 92 },
+      ],
+    };
+  });
+}
+
+function toDragTargets(cells: BushfireCell[]) {
+  return cells.map((cell) => ({
+    zoneId: cell.id,
+    accepts: ["crew", "water", "firebreak", "roadblock"] as const,
+    x: 125 + cell.x * 230,
+    y: 68 + cell.y * 110,
+    radius: 48,
+  }));
+}
+
 export class BushfireCommandMode implements GameModeEngine {
   initObjectives(_rng: SeededRandom): RoomState["objectives"] {
     return [
@@ -350,6 +384,10 @@ export class BushfireCommandMode implements GameModeEngine {
       title: "Mission HUD",
       subtitle: "Containment command view",
       priority: 1,
+      visualPriority: 100,
+      renderMode: "hybrid",
+      interactionMode: "direct-gesture",
+      overlayTextLevel: "minimal",
       locked: withLock("mission_hud"),
       payload: {
         timerSec: scenario.timerSec,
@@ -367,6 +405,10 @@ export class BushfireCommandMode implements GameModeEngine {
       title: "Town Map",
       subtitle: "Live spread visualization",
       priority: 2,
+      visualPriority: 95,
+      renderMode: "hybrid",
+      interactionMode: "direct-gesture",
+      overlayTextLevel: "minimal",
       locked: withLock("town_map"),
       audioCue: scenario.containment < 40 ? "warning" : "spread",
       payload: {
@@ -375,6 +417,22 @@ export class BushfireCommandMode implements GameModeEngine {
         containment: scenario.containment,
         anxiety: scenario.publicAnxiety,
         cells: scenario.cells,
+        zonePolygons: toZonePolygons(scenario.cells),
+        assetSlots: [
+          { id: "slot_crew", type: "crew", x: 40, y: 330 },
+          { id: "slot_water", type: "water", x: 120, y: 330 },
+          { id: "slot_firebreak", type: "firebreak", x: 200, y: 330 },
+          { id: "slot_roadblock", type: "roadblock", x: 280, y: 330 },
+        ],
+        dragTargets: toDragTargets(scenario.cells).map((target) => ({
+          zoneId: target.zoneId,
+          accepts: [...target.accepts],
+          x: target.x,
+          y: target.y,
+          radius: target.radius,
+        })),
+        windVector: toWindVector(scenario.windDirection, scenario.windStrength),
+        heatFieldSeed: Math.max(1, Math.round(scenario.containment * 100 + scenario.publicAnxiety)),
       },
     });
 
@@ -384,6 +442,10 @@ export class BushfireCommandMode implements GameModeEngine {
       title: "Fire Ops Console",
       subtitle: "Deploy and suppression",
       priority: 3,
+      visualPriority: 84,
+      renderMode: "svg",
+      interactionMode: "diegetic-control",
+      overlayTextLevel: "supporting",
       locked: withLock("fire_ops_console"),
       payload: {
         waterBombsAvailable: scenario.waterBombsAvailable,
@@ -398,6 +460,10 @@ export class BushfireCommandMode implements GameModeEngine {
       title: "Police Ops Console",
       subtitle: "Evacuation and access control",
       priority: 4,
+      visualPriority: 82,
+      renderMode: "svg",
+      interactionMode: "diegetic-control",
+      overlayTextLevel: "supporting",
       locked: withLock("police_ops_console"),
       payload: {
         evacuationZoneIds: scenario.cells.filter((cell) => cell.evacuated).map((cell) => cell.id),
@@ -412,6 +478,10 @@ export class BushfireCommandMode implements GameModeEngine {
       title: "Public Info Console",
       subtitle: "Advisories and rumor pressure",
       priority: 5,
+      visualPriority: 80,
+      renderMode: "svg",
+      interactionMode: "diegetic-control",
+      overlayTextLevel: "supporting",
       locked: withLock("public_info_console"),
       payload: {
         advisories: scenario.publicAdvisories,
@@ -426,6 +496,10 @@ export class BushfireCommandMode implements GameModeEngine {
       title: "Incident Command Console",
       subtitle: "Strategic command layer",
       priority: 6,
+      visualPriority: 78,
+      renderMode: "svg",
+      interactionMode: "diegetic-control",
+      overlayTextLevel: "supporting",
       locked: withLock("incident_command_console"),
       payload: {
         containment: scenario.containment,
@@ -444,6 +518,10 @@ export class BushfireCommandMode implements GameModeEngine {
         title: "GM Orchestrator",
         subtitle: "Access and role simulation controls",
         priority: 90,
+        visualPriority: 74,
+        renderMode: "hybrid",
+        interactionMode: "drawer-control",
+        overlayTextLevel: "dense",
         locked: withLock("gm_orchestrator"),
         payload: {
           players: args.state.players,
@@ -451,6 +529,29 @@ export class BushfireCommandMode implements GameModeEngine {
           panelLocks: args.panelState.panelLocks,
           simulatedRole: args.panelState.gmSimulatedRole,
           roleOptions: args.roleOptions,
+          cameraTargets: scenario.cells.map((cell) => ({
+            id: `cam_${cell.id}`,
+            label: cell.zoneName,
+            x: 0.16 + cell.x * 0.28,
+            y: 0.2 + cell.y * 0.28,
+            urgency: Math.min(1, cell.fireLevel / 100),
+          })),
+          riskHotspots: scenario.cells
+            .filter((cell) => cell.fireLevel > 45)
+            .map((cell) => ({
+              id: `risk_${cell.id}`,
+              x: 0.16 + cell.x * 0.28,
+              y: 0.2 + cell.y * 0.28,
+              severity: Math.min(1, cell.fireLevel / 100),
+              label: `${cell.zoneName} ${cell.fireLevel}%`,
+            })),
+          drawerSections: [
+            { id: "roles", title: "Roles" },
+            { id: "access", title: "Panel Access" },
+            { id: "locks", title: "Panel Locks" },
+            { id: "simulate", title: "Simulate Role" },
+          ],
+          selectionContext: {},
         },
       };
 
@@ -460,6 +561,10 @@ export class BushfireCommandMode implements GameModeEngine {
         title: "Debrief Replay",
         subtitle: "Post-incident review",
         priority: 99,
+        visualPriority: 40,
+        renderMode: "svg",
+        interactionMode: "drawer-control",
+        overlayTextLevel: "dense",
         locked: withLock("debrief_replay"),
         payload: {
           metrics: args.debriefMetrics,

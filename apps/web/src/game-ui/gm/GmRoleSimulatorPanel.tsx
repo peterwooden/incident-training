@@ -14,17 +14,25 @@ export function GmRoleSimulatorPanel({
   return (
     <section className="gm-role-simulator">
       <h4>Role Simulation</h4>
-      <select
-        value={simulatedRole ?? ""}
-        onChange={(event) => onSimulateRole(event.target.value ? (event.target.value as IncidentRole) : undefined)}
-      >
-        <option value="">None</option>
+      <div className="sim-role-grid">
+        <button
+          type="button"
+          className={`sim-role-chip ${simulatedRole ? "" : "active"}`}
+          onClick={() => onSimulateRole(undefined)}
+        >
+          Full GM
+        </button>
         {roleOptions.map((role) => (
-          <option key={role} value={role}>
+          <button
+            type="button"
+            key={role}
+            className={`sim-role-chip ${simulatedRole === role ? "active" : ""}`}
+            onClick={() => onSimulateRole(role)}
+          >
             {role}
-          </option>
+          </button>
         ))}
-      </select>
+      </div>
     </section>
   );
 }

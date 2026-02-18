@@ -2,7 +2,9 @@ import type {
   BombScenarioState,
   BombWire,
   IncidentRole,
+  ManualSpread,
   PanelDeckView,
+  Point2D,
   PlayerAction,
   RoomState,
   ScenePanelAccessRule,
@@ -128,6 +130,58 @@ function createScenario(rng: SeededRandom): BombScenarioState {
 
   scenario.manualPages = buildManualPages(scenario);
   return scenario;
+}
+
+function wireLayoutPoint(index: number, start: boolean): Point2D {
+  return {
+    x: start ? 72 : 508,
+    y: 48 + index * 40,
+  };
+}
+
+function buildManualSpreads(scenario: BombScenarioState): ManualSpread[] {
+  return scenario.manualPages.map((page, index) => {
+    const yBase = 60 + index * 20;
+    return {
+      id: page.id,
+      title: page.title,
+      diagramAssets: [
+        {
+          id: `${page.id}_wire_arc`,
+          type: "wire",
+          points: [
+            { x: 80, y: yBase },
+            { x: 180, y: yBase + 30 },
+            { x: 300, y: yBase + 10 },
+          ],
+        },
+        {
+          id: `${page.id}_glyph_path`,
+          type: "glyph",
+          points: [
+            { x: 360, y: 84 },
+            { x: 420, y: 134 },
+            { x: 500, y: 90 },
+          ],
+        },
+      ],
+      hotspots: page.sections.map((section, sectionIndex) => ({
+        id: `${page.id}_spot_${sectionIndex + 1}`,
+        x: 70,
+        y: 150 + sectionIndex * 42,
+        width: 520,
+        height: 36,
+        label: `Clause ${sectionIndex + 1}`,
+        detail: section,
+      })),
+      calloutPins: page.sections.slice(0, 3).map((section, sectionIndex) => ({
+        id: `${page.id}_pin_${sectionIndex + 1}`,
+        x: 610,
+        y: 80 + sectionIndex * 80,
+        text: section,
+      })),
+    };
+  });
 }
 
 export class BombDefusalMode implements GameModeEngine {
@@ -378,6 +432,10 @@ export class BombDefusalMode implements GameModeEngine {
       title: "Mission HUD",
       subtitle: "Primary pressure instrumentation",
       priority: 1,
+      visualPriority: 100,
+      renderMode: "hybrid",
+      interactionMode: "direct-gesture",
+      overlayTextLevel: "minimal",
       locked: withLock("mission_hud"),
       audioCue: scenario.timerSec < 90 ? "warning" : undefined,
       payload: {
@@ -396,6 +454,10 @@ export class BombDefusalMode implements GameModeEngine {
       title: "Device Console",
       subtitle: "Interactive bomb shell",
       priority: 2,
+      visualPriority: 96,
+      renderMode: "hybrid",
+      interactionMode: "diegetic-control",
+      overlayTextLevel: "minimal",
       locked: withLock("device_console"),
       audioCue: scenario.strikes > 0 ? "strike" : undefined,
       payload: {
@@ -408,6 +470,38 @@ export class BombDefusalMode implements GameModeEngine {
           availableSymbols: scenario.symbolModule.availableSymbols,
           enteredSequence: scenario.symbolModule.enteredSequence,
         },
+        wireAnchors: scenario.wires.map((wire, index) => ({
+          wireId: wire.id,
+          start: wireLayoutPoint(index, true),
+          end: wireLayoutPoint(index, false),
+        })),
+        cuttableSegments: scenario.wires.map((wire, index) => ({
+          id: `seg_${wire.id}`,
+          wireId: wire.id,
+          start: { x: 180, y: 48 + index * 40 },
+          end: { x: 420, y: 48 + index * 40 },
+          thickness: 10,
+        })),
+        moduleBounds: [
+          { id: "wire_module", x: 28, y: 24, width: 510, height: 210 },
+          { id: "glyph_module", x: 540, y: 24, width: 150, height: 120 },
+          { id: "stability_module", x: 540, y: 150, width: 150, height: 82 },
+        ],
+        stateLights: [
+          { id: "ok", x: 570, y: 196, color: "green", active: scenario.strikes === 0 },
+          { id: "warn", x: 610, y: 196, color: "amber", active: scenario.strikes === 1 },
+          { id: "danger", x: 650, y: 196, color: "red", active: scenario.strikes >= 2 },
+        ],
+        symbolNodes: scenario.symbolModule.availableSymbols.map((symbol, idx) => {
+          const angle = (Math.PI * 2 * idx) / scenario.symbolModule.availableSymbols.length;
+          return {
+            symbol,
+            x: 615 + Math.cos(angle) * 44,
+            y: 95 + Math.sin(angle) * 44,
+            radius: 18,
+          };
+        }),
+        shakeIntensity: Math.min(1, (scenario.strikes / scenario.maxStrikes) * 0.85 + (540 - scenario.timerSec) / 1000),
         diagnostics: scenario.deviceReadouts,
       },
     });
@@ -418,8 +512,14 @@ export class BombDefusalMode implements GameModeEngine {
       title: "Manual Rulebook",
       subtitle: "Multi-page procedural logic",
       priority: 3,
+      visualPriority: 88,
+      renderMode: "svg",
+      interactionMode: "direct-gesture",
+      overlayTextLevel: "minimal",
       locked: withLock("manual_rulebook"),
       payload: {
+        spreads: buildManualSpreads(scenario),
+        activeSpreadId: scenario.manualPages[0]?.id,
         pages: scenario.manualPages,
         index: scenario.manualPages.map((page) => page.title),
         hint: "Read exact clauses and demand repeat-back before execution.",
@@ -432,6 +532,10 @@ export class BombDefusalMode implements GameModeEngine {
       title: "Safety Telemetry",
       subtitle: "Risk and stabilization window",
       priority: 4,
+      visualPriority: 84,
+      renderMode: "hybrid",
+      interactionMode: "diegetic-control",
+      overlayTextLevel: "supporting",
       locked: withLock("safety_telemetry"),
       audioCue: scenario.timerSec < 100 ? "warning" : undefined,
       payload: {
@@ -447,6 +551,10 @@ export class BombDefusalMode implements GameModeEngine {
       title: "Coordination Board",
       subtitle: "Command checklist and confirmations",
       priority: 5,
+      visualPriority: 80,
+      renderMode: "svg",
+      interactionMode: "diegetic-control",
+      overlayTextLevel: "supporting",
       locked: withLock("coordination_board"),
       payload: {
         checklist: args.state.objectives.map((objective) => ({
@@ -465,6 +573,10 @@ export class BombDefusalMode implements GameModeEngine {
         title: "GM Orchestrator",
         subtitle: "Access and facilitation controls",
         priority: 90,
+        visualPriority: 76,
+        renderMode: "hybrid",
+        interactionMode: "drawer-control",
+        overlayTextLevel: "dense",
         locked: withLock("gm_orchestrator"),
         payload: {
           players: args.state.players,
@@ -472,6 +584,22 @@ export class BombDefusalMode implements GameModeEngine {
           panelLocks: args.panelState.panelLocks,
           simulatedRole: args.panelState.gmSimulatedRole,
           roleOptions: args.roleOptions,
+          cameraTargets: [
+            { id: "ct_device", label: "Device Core", x: 0.36, y: 0.44, urgency: 0.82 },
+            { id: "ct_rulebook", label: "Manual Desk", x: 0.76, y: 0.4, urgency: 0.56 },
+            { id: "ct_safety", label: "Telemetry", x: 0.66, y: 0.75, urgency: 0.69 },
+          ],
+          riskHotspots: [
+            { id: "risk_timer", x: 0.6, y: 0.22, severity: Math.max(0, 1 - scenario.timerSec / 540), label: "Timer" },
+            { id: "risk_strike", x: 0.6, y: 0.3, severity: scenario.strikes / scenario.maxStrikes, label: "Strikes" },
+          ],
+          drawerSections: [
+            { id: "roles", title: "Roles" },
+            { id: "access", title: "Panel Access" },
+            { id: "locks", title: "Panel Locks" },
+            { id: "simulate", title: "Simulate Role" },
+          ],
+          selectionContext: {},
         },
       };
 
@@ -481,6 +609,10 @@ export class BombDefusalMode implements GameModeEngine {
         title: "Debrief Replay",
         subtitle: "Post-round diagnostics",
         priority: 99,
+        visualPriority: 40,
+        renderMode: "svg",
+        interactionMode: "drawer-control",
+        overlayTextLevel: "dense",
         locked: withLock("debrief_replay"),
         payload: {
           metrics: args.debriefMetrics,
