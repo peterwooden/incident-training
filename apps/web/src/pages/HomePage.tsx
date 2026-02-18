@@ -4,7 +4,7 @@ import type { GameMode, IncidentRole } from "@incident/shared";
 import { createRoom, joinRoom } from "../api";
 import { useRoomContext } from "../context";
 
-const ROLE_OPTIONS: Record<GameMode, IncidentRole[]> = {
+const MODE_ROLES: Record<GameMode, IncidentRole[]> = {
   "bomb-defusal": [
     "Lead Coordinator",
     "Device Specialist",
@@ -22,26 +22,23 @@ const ROLE_OPTIONS: Record<GameMode, IncidentRole[]> = {
 };
 
 export function HomePage() {
-  const [gmName, setGmName] = useState("Game Master");
+  const [gmName, setGmName] = useState("Facilitator");
   const [mode, setMode] = useState<GameMode>("bomb-defusal");
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState("Player");
   const [joinRole, setJoinRole] = useState<IncidentRole>("Observer");
   const [error, setError] = useState<string | undefined>();
+
   const navigate = useNavigate();
   const { setSession, setState } = useRoomContext();
 
-  const modeRoles = useMemo(() => ROLE_OPTIONS[mode], [mode]);
+  const roleOptions = useMemo(() => MODE_ROLES[mode], [mode]);
 
   const onCreate = async () => {
     setError(undefined);
     try {
       const created = await createRoom({ gmName, mode });
-      setSession({
-        roomCode: created.roomCode,
-        playerId: created.gmPlayerId,
-        gmSecret: created.gmSecret,
-      });
+      setSession({ roomCode: created.roomCode, playerId: created.gmPlayerId, gmSecret: created.gmSecret });
       setState(created.state);
       navigate(`/room/${encodeURIComponent(created.roomCode)}`);
     } catch (err) {
@@ -62,66 +59,63 @@ export function HomePage() {
   };
 
   return (
-    <main className="landing">
-      <section className="hero card">
-        <p className="eyebrow">Multiplayer Crisis Simulation</p>
-        <h1>Command Under Pressure</h1>
+    <main className="landing-shell">
+      <section className="landing-hero">
+        <p className="eyebrow">Cinematic Team Simulation</p>
+        <h1>Scene Panel Crisis Games</h1>
         <p>
-          Play a high-intensity cooperative simulation. Communicate only in Slack while operating the game surface.
-          One team sees the device or map, others hold the critical playbook clues.
+          Real-time multiplayer drills with strict information asymmetry. Run communication in Slack, execute operations in the game.
         </p>
-        <div className="mode-grid">
-          <article className={`mode-card ${mode === "bomb-defusal" ? "active" : ""}`}>
-            <h3>Bomb Defusal</h3>
-            <p>Asymmetric puzzle pressure inspired by social defusal games.</p>
-            <button onClick={() => setMode("bomb-defusal")}>Choose Bomb Scenario</button>
-          </article>
-          <article className={`mode-card ${mode === "bushfire-command" ? "active" : ""}`}>
-            <h3>Bushfire Command</h3>
-            <p>Coordinate fire spread containment across a dynamic town map.</p>
-            <button onClick={() => setMode("bushfire-command")}>Choose Bushfire Scenario</button>
-          </article>
+        <div className="mode-selector">
+          <button className={mode === "bomb-defusal" ? "active" : ""} onClick={() => setMode("bomb-defusal")}>Bomb Defusal</button>
+          <button className={mode === "bushfire-command" ? "active" : ""} onClick={() => setMode("bushfire-command")}>Bushfire Command</button>
         </div>
       </section>
 
-      <section className="card">
-        <h2>Create Session</h2>
+      <section className="landing-card">
+        <h2>Create Room (GM)</h2>
         <label>
           Facilitator Name
-          <input value={gmName} onChange={(e) => setGmName(e.target.value)} />
+          <input value={gmName} onChange={(event) => setGmName(event.target.value)} />
         </label>
         <label>
-          Scenario Mode
-          <select value={mode} onChange={(e) => setMode(e.target.value as GameMode)}>
+          Scenario
+          <select value={mode} onChange={(event) => setMode(event.target.value as GameMode)}>
             <option value="bomb-defusal">Bomb Defusal</option>
             <option value="bushfire-command">Bushfire Command</option>
           </select>
         </label>
-        <p className="hint">Recommended Slack setup: one shared call and one incident text channel.</p>
-        <button onClick={onCreate}>Create Room</button>
+        <button onClick={onCreate}>Create Session</button>
       </section>
 
-      <section className="card">
-        <h2>Join Session</h2>
+      <section className="landing-card">
+        <h2>Join Room</h2>
         <label>
           Room Code
-          <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
+          <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} />
         </label>
         <label>
-          Name
-          <input value={joinName} onChange={(e) => setJoinName(e.target.value)} />
+          Display Name
+          <input value={joinName} onChange={(event) => setJoinName(event.target.value)} />
         </label>
         <label>
-          Preferred Role
-          <select value={joinRole} onChange={(e) => setJoinRole(e.target.value as IncidentRole)}>
-            {modeRoles.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
+          Requested Role
+          <select value={joinRole} onChange={(event) => setJoinRole(event.target.value as IncidentRole)}>
+            {roleOptions.map((role) => (
+              <option key={role} value={role}>{role}</option>
             ))}
           </select>
         </label>
-        <button onClick={onJoin}>Join Room</button>
+        <button onClick={onJoin}>Join Session</button>
+      </section>
+
+      <section className="landing-card ritual-card">
+        <h2>Facilitator Ritual</h2>
+        <ol>
+          <li>Create dedicated Slack channel and call.</li>
+          <li>Assign roles in lobby before launch.</li>
+          <li>Remind team: no in-app chat, only Slack comms.</li>
+        </ol>
       </section>
 
       {error && <p className="error">{error}</p>}

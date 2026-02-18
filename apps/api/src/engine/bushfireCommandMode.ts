@@ -1,12 +1,15 @@
 import type {
   BushfireCell,
   BushfireScenarioState,
-  Player,
+  IncidentRole,
+  PanelDeckView,
   PlayerAction,
   RoomState,
-  ScenarioView,
+  ScenePanelAccessRule,
+  ScenePanelId,
+  ScenePanelView,
 } from "@incident/shared";
-import type { GameModeEngine, ModeMutation } from "./types";
+import type { GameModeEngine, ModeMutation, SeededRandom } from "./types";
 import { newTimelineEvent } from "./helpers";
 
 const ZONES = [
@@ -21,23 +24,38 @@ const ZONES = [
   "North Estate",
 ];
 
-const ROLE_INSTRUCTION: Record<string, string> = {
-  "Incident Controller": "Direct strategy from Slack and keep role boundaries clear.",
-  "Fire Operations SME": "Deploy crews, water drops, and firebreaks to reduce spread.",
-  "Police Operations SME": "Manage roadblocks and evacuation corridors.",
-  "Public Information Officer": "Issue public advisories and maintain trust under pressure.",
-  Observer: "Observe cross-team handoffs and decision quality.",
+const PANEL_DEFINITIONS: ScenePanelAccessRule[] = [
+  { id: "mission_hud", kind: "shared", defaultRoles: ["Observer"] },
+  { id: "town_map", kind: "shared", defaultRoles: ["Observer"] },
+  { id: "fire_ops_console", kind: "role-scoped", defaultRoles: ["Fire Operations SME"] },
+  { id: "police_ops_console", kind: "role-scoped", defaultRoles: ["Police Operations SME"] },
+  { id: "public_info_console", kind: "role-scoped", defaultRoles: ["Public Information Officer"] },
+  { id: "incident_command_console", kind: "role-scoped", defaultRoles: ["Incident Controller"] },
+  { id: "gm_orchestrator", kind: "gm-only", defaultRoles: [] },
+  { id: "debrief_replay", kind: "gm-only", defaultRoles: [] },
+];
+
+const DEFAULT_BY_ROLE: Record<IncidentRole, ScenePanelId[]> = {
+  "Incident Controller": ["mission_hud", "town_map", "incident_command_console"],
+  "Fire Operations SME": ["mission_hud", "town_map", "fire_ops_console"],
+  "Police Operations SME": ["mission_hud", "town_map", "police_ops_console"],
+  "Public Information Officer": ["mission_hud", "town_map", "public_info_console"],
+  "Lead Coordinator": ["mission_hud", "town_map"],
+  "Device Specialist": ["mission_hud", "town_map"],
+  "Manual Analyst": ["mission_hud", "town_map"],
+  "Safety Officer": ["mission_hud", "town_map"],
+  Observer: ["mission_hud", "town_map"],
 };
 
-function createCells(): BushfireCell[] {
+function createCells(rng: SeededRandom): BushfireCell[] {
   return ZONES.map((zoneName, idx) => ({
     id: `cell_${idx + 1}`,
     x: idx % 3,
     y: Math.floor(idx / 3),
     zoneName,
-    fireLevel: idx === 1 || idx === 3 ? 45 : 0,
-    fuel: 70 + Math.floor(Math.random() * 20),
-    population: 50 + Math.floor(Math.random() * 250),
+    fireLevel: idx === 1 || idx === 3 ? 44 : rng.nextInt(15),
+    fuel: 65 + rng.nextInt(25),
+    population: 50 + rng.nextInt(320),
     evacuated: false,
     hasFireCrew: false,
     hasPoliceUnit: false,
@@ -54,16 +72,15 @@ function spreadFire(cells: BushfireCell[], windStrength: number): BushfireCell[]
 
     const growth = windStrength * 3 + (cell.hasFirebreak ? -6 : 0) + (cell.hasFireCrew ? -8 : 0);
     cell.fireLevel = Math.max(0, Math.min(100, cell.fireLevel + growth));
-    cell.fuel = Math.max(0, cell.fuel - 4);
+    cell.fuel = Math.max(0, cell.fuel - 5);
 
     if (cell.fireLevel > 40) {
       const neighbors = next.filter(
-        (candidate) =>
-          Math.abs(candidate.x - cell.x) + Math.abs(candidate.y - cell.y) === 1 && candidate.fireLevel < 100,
+        (candidate) => Math.abs(candidate.x - cell.x) + Math.abs(candidate.y - cell.y) === 1,
       );
 
       for (const neighbor of neighbors) {
-        const spread = Math.max(0, 8 + windStrength * 2 - (neighbor.hasFirebreak ? 8 : 0));
+        const spread = Math.max(0, 7 + windStrength * 2 - (neighbor.hasFirebreak ? 8 : 0));
         neighbor.fireLevel = Math.max(neighbor.fireLevel, Math.min(100, neighbor.fireLevel + spread));
       }
     }
@@ -74,7 +91,7 @@ function spreadFire(cells: BushfireCell[], windStrength: number): BushfireCell[]
 function containmentFromCells(cells: BushfireCell[]): number {
   const burning = cells.filter((cell) => cell.fireLevel > 0).length;
   const severe = cells.filter((cell) => cell.fireLevel >= 60).length;
-  return Math.max(0, 100 - burning * 8 - severe * 6);
+  return Math.max(0, 100 - burning * 7 - severe * 7);
 }
 
 function completeObjectiveForAction(
@@ -85,24 +102,28 @@ function completeObjectiveForAction(
   return next ? [next.id] : [];
 }
 
+function burningZoneIds(cells: BushfireCell[]): string[] {
+  return cells.filter((cell) => cell.fireLevel > 30).map((cell) => cell.id);
+}
+
 export class BushfireCommandMode implements GameModeEngine {
-  initObjectives(): RoomState["objectives"] {
+  initObjectives(_rng: SeededRandom): RoomState["objectives"] {
     return [
       {
         id: "fire_obj_1",
-        description: "Deploy at least one fire crew to an active zone",
+        description: "Deploy fire crews into at least one active zone",
         requiredAction: "bushfire_deploy_fire_crew",
         completed: false,
       },
       {
         id: "fire_obj_2",
-        description: "Issue public advisory before anxiety spikes",
+        description: "Issue a public advisory before anxiety exceeds 50%",
         requiredAction: "bushfire_issue_public_update",
         completed: false,
       },
       {
         id: "fire_obj_3",
-        description: "Create a firebreak protecting a high-risk zone",
+        description: "Create a defensive firebreak near severe fire",
         requiredAction: "bushfire_create_firebreak",
         completed: false,
       },
@@ -110,21 +131,42 @@ export class BushfireCommandMode implements GameModeEngine {
   }
 
   initSummary(): string {
-    return "Bushfire command simulation active. Coordinate all comms in Slack while executing map operations in-game.";
+    return "Bushfire simulation underway. Use Slack for command communications and operate through your assigned panels.";
   }
 
-  initScenario(): RoomState["scenario"] {
+  initScenario(rng: SeededRandom): RoomState["scenario"] {
     return {
       type: "bushfire-command",
-      timerSec: 540,
-      windDirection: ["N", "S", "E", "W"][Math.floor(Math.random() * 4)] as "N" | "S" | "E" | "W",
-      windStrength: (Math.floor(Math.random() * 3) + 1) as 1 | 2 | 3,
-      publicAnxiety: 25,
-      containment: 72,
+      timerSec: 600,
+      windDirection: ["N", "S", "E", "W"][rng.nextInt(4)] as "N" | "S" | "E" | "W",
+      windStrength: (rng.nextInt(3) + 1) as 1 | 2 | 3,
+      publicAnxiety: 20,
+      containment: 74,
       waterBombsAvailable: 3,
-      cells: createCells(),
+      cells: createCells(rng),
       publicAdvisories: [],
+      strategyNotes: ["Protect dense population zones first."],
     };
+  }
+
+  getPanelDefinitions(): ScenePanelAccessRule[] {
+    return PANEL_DEFINITIONS;
+  }
+
+  getDefaultAccessTemplate(role: IncidentRole): ScenePanelId[] {
+    return DEFAULT_BY_ROLE[role] ?? ["mission_hud", "town_map"];
+  }
+
+  getPanelForAction(actionType: PlayerAction["type"]): ScenePanelId | undefined {
+    const map: Partial<Record<PlayerAction["type"], ScenePanelId>> = {
+      bushfire_deploy_fire_crew: "fire_ops_console",
+      bushfire_drop_water: "fire_ops_console",
+      bushfire_create_firebreak: "fire_ops_console",
+      bushfire_set_roadblock: "police_ops_console",
+      bushfire_issue_public_update: "public_info_console",
+      assign_role: "gm_orchestrator",
+    };
+    return map[actionType];
   }
 
   onAction(state: RoomState, action: PlayerAction, now: number): ModeMutation {
@@ -137,7 +179,11 @@ export class BushfireCommandMode implements GameModeEngine {
       ...scenario,
       cells: scenario.cells.map((cell) => ({ ...cell })),
       publicAdvisories: [...scenario.publicAdvisories],
+      strategyNotes: [...scenario.strategyNotes],
     };
+
+    const targetCellId = String(action.payload?.cellId ?? "");
+    const targetCell = next.cells.find((cell) => cell.id === targetCellId);
 
     const timelineAdds = [
       newTimelineEvent("status", `${action.playerId} executed ${action.type}`, now, action.playerId),
@@ -145,61 +191,58 @@ export class BushfireCommandMode implements GameModeEngine {
 
     let pressureDelta = 0;
     let scoreDelta = 0;
-    let summary: string | undefined;
-
-    const targetCellId = String(action.payload?.cellId ?? "");
-    const targetCell = next.cells.find((cell) => cell.id === targetCellId);
+    let summary = "Command loop active.";
 
     if (action.type === "bushfire_deploy_fire_crew") {
       if (!targetCell) {
-        return { pressureDelta: 3, scoreDelta: -3, timelineAdds };
+        return { pressureDelta: 3, scoreDelta: -3, timelineAdds, summary: "Invalid crew target." };
       }
       targetCell.hasFireCrew = true;
-      targetCell.fireLevel = Math.max(0, targetCell.fireLevel - 15);
-      scoreDelta += 9;
+      targetCell.fireLevel = Math.max(0, targetCell.fireLevel - 14);
       pressureDelta -= 4;
-      summary = `Fire crew deployed to ${targetCell.zoneName}.`;
+      scoreDelta += 9;
+      summary = `Fire crews deployed to ${targetCell.zoneName}.`;
     }
 
     if (action.type === "bushfire_drop_water") {
       if (!targetCell || next.waterBombsAvailable <= 0) {
-        return { pressureDelta: 5, scoreDelta: -4, timelineAdds };
+        return { pressureDelta: 4, scoreDelta: -4, timelineAdds, summary: "Water drop failed." };
       }
       next.waterBombsAvailable -= 1;
-      targetCell.fireLevel = Math.max(0, targetCell.fireLevel - 25);
-      scoreDelta += 10;
+      targetCell.fireLevel = Math.max(0, targetCell.fireLevel - 24);
       pressureDelta -= 5;
-      summary = `Water drop hit ${targetCell.zoneName}.`;
-    }
-
-    if (action.type === "bushfire_set_roadblock") {
-      if (!targetCell) {
-        return { pressureDelta: 3, scoreDelta: -2, timelineAdds };
-      }
-      targetCell.hasPoliceUnit = true;
-      targetCell.evacuated = true;
-      scoreDelta += 8;
-      pressureDelta -= 3;
-      summary = `Police roadblock + evacuation staged near ${targetCell.zoneName}.`;
+      scoreDelta += 11;
+      summary = `Water drop landed on ${targetCell.zoneName}.`;
     }
 
     if (action.type === "bushfire_create_firebreak") {
       if (!targetCell) {
-        return { pressureDelta: 3, scoreDelta: -2, timelineAdds };
+        return { pressureDelta: 3, scoreDelta: -3, timelineAdds, summary: "Invalid firebreak target." };
       }
       targetCell.hasFirebreak = true;
+      pressureDelta -= 3;
       scoreDelta += 8;
-      pressureDelta -= 4;
       summary = `Firebreak established at ${targetCell.zoneName}.`;
     }
 
+    if (action.type === "bushfire_set_roadblock") {
+      if (!targetCell) {
+        return { pressureDelta: 2, scoreDelta: -2, timelineAdds, summary: "Invalid roadblock target." };
+      }
+      targetCell.hasPoliceUnit = true;
+      targetCell.evacuated = true;
+      pressureDelta -= 3;
+      scoreDelta += 8;
+      summary = `Roadblock and evacuation lane activated for ${targetCell.zoneName}.`;
+    }
+
     if (action.type === "bushfire_issue_public_update") {
-      const template = String(action.payload?.template ?? "Shelter-in-place advisory issued.");
+      const template = String(action.payload?.template ?? "Emergency advisory issued.");
       next.publicAdvisories.push(template);
       next.publicAnxiety = Math.max(0, next.publicAnxiety - 10);
-      scoreDelta += 7;
       pressureDelta -= 2;
-      summary = "Public information advisory delivered.";
+      scoreDelta += 7;
+      summary = "Public update broadcast delivered.";
     }
 
     next.containment = containmentFromCells(next.cells);
@@ -208,11 +251,11 @@ export class BushfireCommandMode implements GameModeEngine {
       return {
         replaceScenario: next,
         status: "resolved",
-        pressureDelta: -8,
-        scoreDelta: 20,
+        pressureDelta: -10,
+        scoreDelta: 22,
+        summary: "Containment and public confidence targets achieved.",
+        timelineAdds: [...timelineAdds, newTimelineEvent("system", "Command objective achieved.", now)],
         markObjectiveIdsComplete: completeObjectiveForAction(state.objectives, action.type),
-        summary: "Fire contained and public risk stabilized.",
-        timelineAdds: [...timelineAdds, newTimelineEvent("system", "Containment target reached.", now)],
       };
     }
 
@@ -221,8 +264,8 @@ export class BushfireCommandMode implements GameModeEngine {
       pressureDelta,
       scoreDelta,
       summary,
-      markObjectiveIdsComplete: completeObjectiveForAction(state.objectives, action.type),
       timelineAdds,
+      markObjectiveIdsComplete: completeObjectiveForAction(state.objectives, action.type),
     };
   }
 
@@ -237,71 +280,203 @@ export class BushfireCommandMode implements GameModeEngine {
       timerSec: Math.max(0, scenario.timerSec - 15),
       cells: spreadFire(scenario.cells, scenario.windStrength),
       publicAdvisories: [...scenario.publicAdvisories],
+      strategyNotes: [...scenario.strategyNotes],
       publicAnxiety: Math.min(100, scenario.publicAnxiety + (scenario.publicAdvisories.length > 0 ? 1 : 4)),
     };
     next.containment = containmentFromCells(next.cells);
 
-    if (next.timerSec === 0 || next.publicAnxiety >= 90 || next.containment <= 25) {
+    if (next.timerSec === 0 || next.publicAnxiety >= 92 || next.containment <= 24) {
       return {
         replaceScenario: next,
         status: "failed",
         pressureDelta: 18,
-        scoreDelta: -15,
-        summary: "Fire escalation exceeded command capacity.",
-        timelineAdds: [newTimelineEvent("inject", "Scenario failed: spread and public panic overwhelmed response.", now)],
+        scoreDelta: -14,
+        summary: "Town response collapsed under spread and public panic.",
+        timelineAdds: [newTimelineEvent("inject", "Critical failure threshold reached.", now)],
       };
     }
 
     return {
       replaceScenario: next,
       pressureDelta: 3,
+      summary: "Fire front continues to shift.",
       timelineAdds: [
         newTimelineEvent(
           "inject",
-          `Wind ${next.windDirection} at strength ${next.windStrength}. Fire line is shifting across town.`,
+          `Wind ${next.windDirection} / ${next.windStrength}. Fireline expanded across exposed sectors.`,
           now,
         ),
       ],
     };
   }
 
-  toScenarioView(state: RoomState, player?: Player): ScenarioView {
-    const scenario = state.scenario;
+  buildPanelDeck(args: {
+    state: RoomState;
+    viewer?: { id: string; role: IncidentRole; isGameMaster: boolean };
+    effectiveRole: IncidentRole;
+    panelState: RoomState["panelState"];
+    roleOptions: IncidentRole[];
+    debriefMetrics: {
+      executionAccuracy: number;
+      timingDiscipline: number;
+      communicationDiscipline: number;
+      overall: number;
+    };
+  }): PanelDeckView {
+    const scenario = args.state.scenario;
     if (scenario.type !== "bushfire-command") {
-      throw new Error("Invalid scenario mode");
+      throw new Error("invalid scenario");
     }
 
-    const role = player?.role ?? "Observer";
-    const visibleClues: string[] = [
-      `Priority zones burning: ${scenario.cells
-        .filter((cell) => cell.fireLevel >= 40)
-        .map((cell) => cell.zoneName)
-        .join(", ") || "none"}.`,
-    ];
+    const viewer = args.viewer;
+    const isGm = Boolean(viewer?.isGameMaster);
+    const granted = viewer ? args.panelState.accessGrants[viewer.id] ?? this.getDefaultAccessTemplate(viewer.role) : [];
+    const availablePanelIds = isGm
+      ? PANEL_DEFINITIONS.map((panel) => panel.id)
+      : granted.filter((panelId) => panelId !== "gm_orchestrator" && panelId !== "debrief_replay");
 
-    if (role === "Fire Operations SME" || role === "Incident Controller") {
-      visibleClues.push("Fire ops note: anchor lines where fuel remains high and access is open.");
+    const panelMap: PanelDeckView["panelsById"] = {};
+    const withLock = (id: ScenePanelId) => args.panelState.panelLocks[id] ?? { locked: false };
+
+    const pushPanel = <K extends ScenePanelId>(panel: ScenePanelView<K>): void => {
+      if (availablePanelIds.includes(panel.id)) {
+        panelMap[panel.id] = panel as any;
+      }
+    };
+
+    pushPanel({
+      id: "mission_hud",
+      kind: "shared",
+      title: "Mission HUD",
+      subtitle: "Containment command view",
+      priority: 1,
+      locked: withLock("mission_hud"),
+      payload: {
+        timerSec: scenario.timerSec,
+        pressure: args.state.pressure,
+        score: args.state.score,
+        status: args.state.status,
+        summary: args.state.publicSummary,
+        slackReminder: "Coordinate strategic commands in Slack before dispatching units.",
+      },
+    });
+
+    pushPanel({
+      id: "town_map",
+      kind: "shared",
+      title: "Town Map",
+      subtitle: "Live spread visualization",
+      priority: 2,
+      locked: withLock("town_map"),
+      audioCue: scenario.containment < 40 ? "warning" : "spread",
+      payload: {
+        windDirection: scenario.windDirection,
+        windStrength: scenario.windStrength,
+        containment: scenario.containment,
+        anxiety: scenario.publicAnxiety,
+        cells: scenario.cells,
+      },
+    });
+
+    pushPanel({
+      id: "fire_ops_console",
+      kind: "role-scoped",
+      title: "Fire Ops Console",
+      subtitle: "Deploy and suppression",
+      priority: 3,
+      locked: withLock("fire_ops_console"),
+      payload: {
+        waterBombsAvailable: scenario.waterBombsAvailable,
+        burningZoneIds: burningZoneIds(scenario.cells),
+        note: "Prioritize severe fire clusters with high fuel reserves.",
+      },
+    });
+
+    pushPanel({
+      id: "police_ops_console",
+      kind: "role-scoped",
+      title: "Police Ops Console",
+      subtitle: "Evacuation and access control",
+      priority: 4,
+      locked: withLock("police_ops_console"),
+      payload: {
+        evacuationZoneIds: scenario.cells.filter((cell) => cell.evacuated).map((cell) => cell.id),
+        blockedZoneIds: scenario.cells.filter((cell) => cell.hasPoliceUnit).map((cell) => cell.id),
+        note: "Secure evacuation paths for dense population corridors.",
+      },
+    });
+
+    pushPanel({
+      id: "public_info_console",
+      kind: "role-scoped",
+      title: "Public Info Console",
+      subtitle: "Advisories and rumor pressure",
+      priority: 5,
+      locked: withLock("public_info_console"),
+      payload: {
+        advisories: scenario.publicAdvisories,
+        anxiety: scenario.publicAnxiety,
+        cadenceHint: scenario.publicAnxiety > 55 ? "Increase advisory cadence now." : "Maintain update rhythm.",
+      },
+    });
+
+    pushPanel({
+      id: "incident_command_console",
+      kind: "role-scoped",
+      title: "Incident Command Console",
+      subtitle: "Strategic command layer",
+      priority: 6,
+      locked: withLock("incident_command_console"),
+      payload: {
+        containment: scenario.containment,
+        strategicObjectives: args.state.objectives.map((objective) => objective.description),
+        topRisks: [
+          `Public anxiety: ${scenario.publicAnxiety}%`,
+          `Severe fire sectors: ${scenario.cells.filter((cell) => cell.fireLevel >= 60).length}`,
+        ],
+      },
+    });
+
+    if (isGm) {
+      panelMap.gm_orchestrator = {
+        id: "gm_orchestrator",
+        kind: "gm-only",
+        title: "GM Orchestrator",
+        subtitle: "Access and role simulation controls",
+        priority: 90,
+        locked: withLock("gm_orchestrator"),
+        payload: {
+          players: args.state.players,
+          accessByPlayer: args.panelState.accessGrants,
+          panelLocks: args.panelState.panelLocks,
+          simulatedRole: args.panelState.gmSimulatedRole,
+          roleOptions: args.roleOptions,
+        },
+      };
+
+      panelMap.debrief_replay = {
+        id: "debrief_replay",
+        kind: "gm-only",
+        title: "Debrief Replay",
+        subtitle: "Post-incident review",
+        priority: 99,
+        locked: withLock("debrief_replay"),
+        payload: {
+          metrics: args.debriefMetrics,
+          events: args.state.debriefLog,
+        },
+      };
     }
-    if (role === "Police Operations SME" || role === "Incident Controller") {
-      visibleClues.push("Police note: evacuate zones above 50 fire level before next wind pulse.");
-    }
-    if (role === "Public Information Officer" || role === "Incident Controller") {
-      visibleClues.push("PIO note: frequent clear advisories reduce anxiety drift.");
-    }
+
+    const defaultOrder = Object.values(panelMap)
+      .sort((a, b) => a.priority - b.priority)
+      .map((panel) => panel.id);
 
     return {
-      type: "bushfire-command",
-      timerSec: scenario.timerSec,
-      windDirection: scenario.windDirection,
-      windStrength: scenario.windStrength,
-      publicAnxiety: scenario.publicAnxiety,
-      containment: scenario.containment,
-      waterBombsAvailable: scenario.waterBombsAvailable,
-      cells: scenario.cells,
-      publicAdvisories: scenario.publicAdvisories,
-      visibleClues,
-      roleInstruction:
-        ROLE_INSTRUCTION[role] ?? "Support team cadence and communicate through the designated Slack channel.",
+      availablePanelIds: defaultOrder,
+      panelsById: panelMap,
+      defaultOrder,
+      gmSimulatedRole: args.panelState.gmSimulatedRole,
     };
   }
 }

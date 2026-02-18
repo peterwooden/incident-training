@@ -1,9 +1,13 @@
 import type {
   ActionRequest,
+  AssignRoleRequest,
   CreateRoomRequest,
   IncidentRole,
   JoinRoomRequest,
   RoomView,
+  SetGmSimulatedRoleRequest,
+  SetPanelAccessRequest,
+  SetPanelLockRequest,
   StartGameRequest,
 } from "@incident/shared";
 
@@ -40,7 +44,10 @@ export async function startRoom(roomCode: string, body: StartGameRequest) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`Start room failed: ${resp.status}`);
+  if (!resp.ok) {
+    const details = await resp.text();
+    throw new Error(`Start room failed: ${resp.status} ${details}`);
+  }
   return resp.json() as Promise<{ state: RoomView }>;
 }
 
@@ -51,6 +58,46 @@ export async function sendAction(roomCode: string, body: ActionRequest) {
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`Action failed: ${resp.status}`);
+  return resp.json() as Promise<{ state: RoomView }>;
+}
+
+export async function assignRole(roomCode: string, body: AssignRoleRequest) {
+  const resp = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/roles/assign`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`Assign role failed: ${resp.status}`);
+  return resp.json() as Promise<{ state: RoomView }>;
+}
+
+export async function setPanelAccess(roomCode: string, body: SetPanelAccessRequest) {
+  const resp = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/panels/access`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`Set panel access failed: ${resp.status}`);
+  return resp.json() as Promise<{ state: RoomView }>;
+}
+
+export async function setPanelLock(roomCode: string, body: SetPanelLockRequest) {
+  const resp = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/panels/lock`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`Set panel lock failed: ${resp.status}`);
+  return resp.json() as Promise<{ state: RoomView }>;
+}
+
+export async function setGmSimulatedRole(roomCode: string, body: SetGmSimulatedRoleRequest) {
+  const resp = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/gm/simulate-role`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`Set GM simulation failed: ${resp.status}`);
   return resp.json() as Promise<{ state: RoomView }>;
 }
 

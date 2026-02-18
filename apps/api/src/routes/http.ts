@@ -1,4 +1,13 @@
-import type { ActionRequest, CreateRoomRequest, JoinRoomRequest, StartGameRequest } from "@incident/shared";
+import type {
+  ActionRequest,
+  AssignRoleRequest,
+  CreateRoomRequest,
+  JoinRoomRequest,
+  SetGmSimulatedRoleRequest,
+  SetPanelAccessRequest,
+  SetPanelLockRequest,
+  StartGameRequest,
+} from "@incident/shared";
 import { createRoomCode } from "../domain/ids";
 import { json, parseJson } from "../infra/json";
 
@@ -48,7 +57,9 @@ export async function handleHttp(request: Request, env: Env): Promise<Response> 
     });
   }
 
-  const roomMatch = path.match(/^\/api\/rooms\/([^/]+)(?:\/(join|start|action|state|events))?$/);
+  const roomMatch = path.match(
+    /^\/api\/rooms\/([^/]+)(?:\/(join|start|action|state|events|roles\/assign|panels\/access|panels\/lock|gm\/simulate-role))?$/,
+  );
   if (!roomMatch) {
     return json({ error: "Not found" }, 404);
   }
@@ -78,6 +89,42 @@ export async function handleHttp(request: Request, env: Env): Promise<Response> 
   if (request.method === "POST" && action === "action") {
     const body = await parseJson<ActionRequest>(request);
     return stub.fetch("https://room/action", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  if (request.method === "POST" && action === "roles/assign") {
+    const body = await parseJson<AssignRoleRequest>(request);
+    return stub.fetch("https://room/assign-role", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  if (request.method === "POST" && action === "panels/access") {
+    const body = await parseJson<SetPanelAccessRequest>(request);
+    return stub.fetch("https://room/panel-access", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  if (request.method === "POST" && action === "panels/lock") {
+    const body = await parseJson<SetPanelLockRequest>(request);
+    return stub.fetch("https://room/panel-lock", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  if (request.method === "POST" && action === "gm/simulate-role") {
+    const body = await parseJson<SetGmSimulatedRoleRequest>(request);
+    return stub.fetch("https://room/simulate-role", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),

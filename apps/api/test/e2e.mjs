@@ -14,7 +14,7 @@ async function waitForHealth() {
         return;
       }
     } catch {
-      // wait and retry
+      // retry
     }
     await sleep(500);
   }
@@ -43,63 +43,54 @@ async function run() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ gmName: "GM", mode: "bomb-defusal" }),
     });
-    if (!createResp.ok) {
-      throw new Error(`create room failed: ${createResp.status}`);
-    }
-
+    if (!createResp.ok) throw new Error(`create room failed: ${createResp.status}`);
     const created = await createResp.json();
     const roomCode = created.roomCode;
 
     const joinResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/join`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Alice", preferredRole: "SME" }),
+      body: JSON.stringify({ name: "Alice", preferredRole: "Safety Officer" }),
     });
-    if (!joinResp.ok) {
-      throw new Error(`join room failed: ${joinResp.status}`);
-    }
+    if (!joinResp.ok) throw new Error(`join room failed: ${joinResp.status}`);
     const joined = await joinResp.json();
 
     const startResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/start`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ gmSecret: created.gmSecret }),
+      body: JSON.stringify({ gmSecret: created.gmSecret, forceStart: true }),
     });
-    if (!startResp.ok) {
-      throw new Error(`start room failed: ${startResp.status}`);
-    }
+    if (!startResp.ok) throw new Error(`start room failed: ${startResp.status}`);
 
     const eventResp = await fetch(
-      `${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/events?playerId=${encodeURIComponent(
-        joined.playerId,
-      )}`,
+      `${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/events?playerId=${encodeURIComponent(joined.playerId)}`,
     );
-    if (!eventResp.ok || !eventResp.body) {
-      throw new Error("failed to open SSE stream");
-    }
+    if (!eventResp.ok || !eventResp.body) throw new Error("failed to open SSE stream");
 
     const reader = eventResp.body.getReader();
     const firstChunk = await reader.read();
-    if (firstChunk.done) {
-      throw new Error("SSE stream closed unexpectedly");
-    }
+    if (firstChunk.done) throw new Error("SSE stream closed unexpectedly");
 
-    const ackResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/action`, {
+    const actionResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/action`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         playerId: joined.playerId,
         actionType: "bomb_stabilize_panel",
+        panelId: "safety_telemetry",
       }),
     });
-    if (!ackResp.ok) {
-      throw new Error(`action failed: ${ackResp.status}`);
-    }
+    if (!actionResp.ok) throw new Error(`action failed: ${actionResp.status}`);
 
-    const stateResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/state`);
+    const stateResp = await fetch(
+      `${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/state?playerId=${encodeURIComponent(joined.playerId)}`,
+    );
     const statePayload = await stateResp.json();
     if (statePayload.state.mode !== "bomb-defusal") {
-      throw new Error("expected bomb mode in room state");
+      throw new Error("expected bomb-defusal mode");
+    }
+    if (!statePayload.state.panelDeck) {
+      throw new Error("expected panel deck in room view");
     }
 
     console.log("E2E passed");

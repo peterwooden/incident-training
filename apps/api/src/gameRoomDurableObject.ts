@@ -1,17 +1,27 @@
 import { DurableObject } from "cloudflare:workers";
 import type {
   ActionRequest,
+  AssignRoleRequest,
   CreateRoomRequest,
+  DebriefEvent,
+  DebriefMetrics,
   GameEventEnvelope,
+  IncidentRole,
   JoinRoomRequest,
   Player,
   PlayerAction,
   RoomState,
   RoomView,
+  ScenePanelId,
+  SetGmSimulatedRoleRequest,
+  SetPanelAccessRequest,
+  SetPanelLockRequest,
   StartGameRequest,
 } from "@incident/shared";
+import { ROOM_SCHEMA_VERSION } from "@incident/shared";
 import { createId, createSecret } from "./domain/ids";
-import { defaultRoleForMode, isRoleAllowed, rolesForMode } from "./domain/roles";
+import { createSeededRandom, hashToSeed, snapshotCursor } from "./domain/rng";
+import { defaultRoleForMode, isRoleAllowed, requiredRolesForMode, rolesForMode } from "./domain/roles";
 import { getModeEngine } from "./engine/registry";
 import type { ModeMutation } from "./engine/types";
 import { newTimelineEvent } from "./engine/helpers";
@@ -20,11 +30,29 @@ import { createSseResponse, sendSseComment, sendSseEvent } from "./infra/sse";
 
 const ROOM_STORAGE_KEY = "room-state";
 const ALARM_INTERVAL_MS = 15_000;
+const SUPPORTED_MODES = new Set(["bomb-defusal", "bushfire-command"]);
 
 interface ClientConnection {
+  connectionId: string;
   playerId: string;
   writer: WritableStreamDefaultWriter<Uint8Array>;
   heartbeat: number;
+}
+
+function hasValidStateShape(stored: unknown): stored is RoomState {
+  if (!stored || typeof stored !== "object") {
+    return false;
+  }
+
+  const candidate = stored as Partial<RoomState>;
+  return (
+    candidate.schemaVersion === ROOM_SCHEMA_VERSION &&
+    typeof candidate.mode === "string" &&
+    SUPPORTED_MODES.has(candidate.mode) &&
+    Boolean(candidate.scenario) &&
+    Boolean(candidate.panelState) &&
+    Boolean(candidate.debriefLog)
+  );
 }
 
 export class GameRoomDurableObject extends DurableObject {
@@ -35,7 +63,15 @@ export class GameRoomDurableObject extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     this.initialized = this.ctx.blockConcurrencyWhile(async () => {
-      this.roomState = (await this.ctx.storage.get<RoomState>(ROOM_STORAGE_KEY)) ?? undefined;
+      const stored = await this.ctx.storage.get(ROOM_STORAGE_KEY);
+      if (!hasValidStateShape(stored)) {
+        if (stored) {
+          await this.ctx.storage.delete(ROOM_STORAGE_KEY);
+        }
+        this.roomState = undefined;
+        return;
+      }
+      this.roomState = stored;
     });
   }
 
@@ -49,6 +85,10 @@ export class GameRoomDurableObject extends DurableObject {
     if (request.method === "POST" && path === "/join") return this.handleJoin(request);
     if (request.method === "POST" && path === "/start") return this.handleStart(request);
     if (request.method === "POST" && path === "/action") return this.handleAction(request);
+    if (request.method === "POST" && path === "/assign-role") return this.handleAssignRole(request);
+    if (request.method === "POST" && path === "/panel-access") return this.handlePanelAccess(request);
+    if (request.method === "POST" && path === "/panel-lock") return this.handlePanelLock(request);
+    if (request.method === "POST" && path === "/simulate-role") return this.handleSimulateRole(request);
     if (request.method === "GET" && path === "/state") return this.handleState(request);
     if (request.method === "GET" && path === "/events") return this.handleEvents(request);
 
@@ -63,13 +103,21 @@ export class GameRoomDurableObject extends DurableObject {
     const now = Date.now();
     const engine = getModeEngine(this.roomState.mode);
     this.applyMutation(engine.onTick(this.roomState, now), now);
+    this.addDebriefEvent({
+      type: "tick",
+      message: "Simulation tick executed.",
+      atEpochMs: now,
+    });
 
     if (this.roomState.pressure >= 100) {
       this.roomState.status = "failed";
       this.roomState.endedAtEpochMs = now;
-      this.roomState.timeline.push(
-        newTimelineEvent("inject", "Team stress exceeded limits. Scenario ended.", now),
-      );
+      this.roomState.timeline.push(newTimelineEvent("inject", "Team stress exceeded threshold.", now));
+      this.addDebriefEvent({
+        type: "system",
+        message: "Scenario failed due to pressure threshold.",
+        atEpochMs: now,
+      });
     }
 
     await this.persist();
@@ -84,6 +132,11 @@ export class GameRoomDurableObject extends DurableObject {
     await this.initialized;
   }
 
+  private buildInitialAccessForPlayer(player: Player, state: RoomState): ScenePanelId[] {
+    const engine = getModeEngine(state.mode);
+    return engine.getDefaultAccessTemplate(player.role);
+  }
+
   private async handleInit(request: Request): Promise<Response> {
     if (this.roomState) {
       return json({ error: "Room is already initialized" }, 409);
@@ -91,6 +144,7 @@ export class GameRoomDurableObject extends DurableObject {
 
     const body = await parseJson<CreateRoomRequest>(request);
     const now = Date.now();
+    const roomCode = request.headers.get("x-room-code") ?? "unknown";
 
     const gm: Player = {
       id: createId("player"),
@@ -99,21 +153,41 @@ export class GameRoomDurableObject extends DurableObject {
       isGameMaster: true,
     };
 
+    const seed = hashToSeed(`${roomCode}:${now}:${crypto.randomUUID()}`);
+    const rng = createSeededRandom(seed, 0);
     const engine = getModeEngine(body.mode);
+
     this.roomState = {
-      roomCode: request.headers.get("x-room-code") ?? "unknown",
+      schemaVersion: ROOM_SCHEMA_VERSION,
+      roomCode,
       mode: body.mode,
       status: "lobby",
       createdAtEpochMs: now,
-      pressure: 15,
+      pressure: 12,
       score: 0,
       players: [gm],
-      objectives: engine.initObjectives(),
+      objectives: engine.initObjectives(rng),
       timeline: [newTimelineEvent("system", "Room created by game master", now, gm.id)],
       publicSummary: engine.initSummary(),
-      scenario: engine.initScenario(),
+      scenario: engine.initScenario(rng),
+      panelState: {
+        accessGrants: {
+          [gm.id]: engine.getDefaultAccessTemplate(gm.role),
+        },
+        panelLocks: {},
+      },
+      debriefLog: [],
+      seed,
+      rngCursor: snapshotCursor(rng),
       gmSecret: createSecret(),
     };
+
+    this.addDebriefEvent({
+      type: "system",
+      message: "Room initialized.",
+      actorPlayerId: gm.id,
+      atEpochMs: now,
+    });
 
     await this.persist();
 
@@ -130,8 +204,7 @@ export class GameRoomDurableObject extends DurableObject {
     if (preferredRole && isRoleAllowed(mode, preferredRole)) {
       return preferredRole;
     }
-    const all = rolesForMode(mode);
-    return all.includes("Observer") ? "Observer" : all[0];
+    return "Observer";
   }
 
   private async handleJoin(request: Request): Promise<Response> {
@@ -149,9 +222,18 @@ export class GameRoomDurableObject extends DurableObject {
     };
 
     this.roomState.players.push(player);
+    this.roomState.panelState.accessGrants[player.id] = this.buildInitialAccessForPlayer(player, this.roomState);
+
+    const now = Date.now();
     this.roomState.timeline.push(
-      newTimelineEvent("system", `${player.name} joined as ${player.role}`, Date.now(), player.id),
+      newTimelineEvent("system", `${player.name} joined as ${player.role}`, now, player.id),
     );
+    this.addDebriefEvent({
+      type: "system",
+      message: `${player.name} joined as ${player.role}.`,
+      actorPlayerId: player.id,
+      atEpochMs: now,
+    });
 
     await this.persist();
     await this.broadcastSnapshot();
@@ -163,12 +245,31 @@ export class GameRoomDurableObject extends DurableObject {
     });
   }
 
+  private ensureGmSecret(secret: string | undefined): boolean {
+    return Boolean(this.roomState && secret && secret === this.roomState.gmSecret);
+  }
+
+  private missingRequiredRoles(): IncidentRole[] {
+    if (!this.roomState) {
+      return [];
+    }
+
+    const required = requiredRolesForMode(this.roomState.mode);
+    const present = new Set(this.roomState.players.map((player) => player.role));
+    return required.filter((role) => !present.has(role));
+  }
+
   private async handleStart(request: Request): Promise<Response> {
     if (!this.roomState) return json({ error: "Room is not initialized" }, 404);
 
     const body = await parseJson<StartGameRequest>(request);
-    if (body.gmSecret !== this.roomState.gmSecret) return json({ error: "Unauthorized" }, 403);
+    if (!this.ensureGmSecret(body.gmSecret)) return json({ error: "Unauthorized" }, 403);
     if (this.roomState.status !== "lobby") return json({ error: "Game already running" }, 409);
+
+    const missingRoles = this.missingRequiredRoles();
+    if (missingRoles.length > 0 && !body.forceStart) {
+      return json({ error: "Missing required roles", missingRoles }, 409);
+    }
 
     const now = Date.now();
     this.roomState.status = "running";
@@ -176,12 +277,40 @@ export class GameRoomDurableObject extends DurableObject {
     this.roomState.timeline.push(
       newTimelineEvent("system", "Scenario started. Use Slack for communication.", now),
     );
+    this.addDebriefEvent({
+      type: "system",
+      message: "Scenario started.",
+      atEpochMs: now,
+    });
 
     await this.persist();
     await this.ctx.storage.setAlarm(now + ALARM_INTERVAL_MS);
     await this.broadcastSnapshot();
 
     return json({ state: this.toRoomView() });
+  }
+
+  private allowedPanelsForPlayer(player: Player): ScenePanelId[] {
+    if (!this.roomState) {
+      return [];
+    }
+    if (player.isGameMaster) {
+      return getModeEngine(this.roomState.mode).getPanelDefinitions().map((panel) => panel.id);
+    }
+
+    const explicit = this.roomState.panelState.accessGrants[player.id];
+    if (explicit?.length) {
+      return explicit;
+    }
+
+    return getModeEngine(this.roomState.mode).getDefaultAccessTemplate(player.role);
+  }
+
+  private isPanelLocked(panelId: ScenePanelId): boolean {
+    if (!this.roomState) {
+      return false;
+    }
+    return this.roomState.panelState.panelLocks[panelId]?.locked === true;
   }
 
   private async handleAction(request: Request): Promise<Response> {
@@ -192,18 +321,40 @@ export class GameRoomDurableObject extends DurableObject {
     const player = this.roomState.players.find((candidate) => candidate.id === body.playerId);
     if (!player) return json({ error: "Invalid player" }, 403);
 
+    const allowedPanels = this.allowedPanelsForPlayer(player);
+    if (!allowedPanels.includes(body.panelId) && !player.isGameMaster) {
+      return json({ error: "Panel access denied", panelId: body.panelId }, 403);
+    }
+
+    if (this.isPanelLocked(body.panelId)) {
+      return json({ error: "Panel is locked", panelId: body.panelId }, 409);
+    }
+
+    const engine = getModeEngine(this.roomState.mode);
+    const expectedPanel = engine.getPanelForAction(body.actionType);
+    if (expectedPanel && expectedPanel !== body.panelId && !player.isGameMaster) {
+      return json({ error: "Action does not belong to provided panel", expectedPanel }, 409);
+    }
+
     const action: PlayerAction = {
       type: body.actionType,
       playerId: body.playerId,
+      panelId: body.panelId,
       payload: body.payload,
     };
 
     const now = Date.now();
-    const engine = getModeEngine(this.roomState.mode);
     this.applyMutation(engine.onAction(this.roomState, action, now), now);
 
-    const statusAfterAction = (this.roomState as RoomState).status;
+    this.addDebriefEvent({
+      type: "action",
+      message: `${player.name} -> ${action.type}`,
+      actorPlayerId: player.id,
+      panelId: action.panelId,
+      atEpochMs: now,
+    });
 
+    const statusAfterAction = (this.roomState as RoomState).status;
     if (statusAfterAction === "resolved") {
       this.roomState.endedAtEpochMs = now;
       this.roomState.timeline.push(newTimelineEvent("system", "Scenario resolved successfully.", now));
@@ -213,8 +364,13 @@ export class GameRoomDurableObject extends DurableObject {
       this.roomState.status = "failed";
       this.roomState.endedAtEpochMs = now;
       this.roomState.timeline.push(
-        newTimelineEvent("inject", "Command breakdown under stress threshold breach.", now),
+        newTimelineEvent("inject", "Command discipline collapsed under pressure.", now),
       );
+      this.addDebriefEvent({
+        type: "system",
+        message: "Scenario failed from pressure saturation.",
+        atEpochMs: now,
+      });
     }
 
     if (this.roomState.status === "failed") {
@@ -225,6 +381,109 @@ export class GameRoomDurableObject extends DurableObject {
     await this.broadcastSnapshot();
 
     return json({ state: this.toRoomView(body.playerId) });
+  }
+
+  private async handleAssignRole(request: Request): Promise<Response> {
+    if (!this.roomState) return json({ error: "Room is not initialized" }, 404);
+    if (this.roomState.status !== "lobby") return json({ error: "Role assignment closed after start" }, 409);
+
+    const body = await parseJson<AssignRoleRequest>(request);
+    if (!this.ensureGmSecret(body.gmSecret)) return json({ error: "Unauthorized" }, 403);
+    if (!isRoleAllowed(this.roomState.mode, body.role)) return json({ error: "Role not allowed for mode" }, 409);
+
+    const player = this.roomState.players.find((candidate) => candidate.id === body.playerId);
+    if (!player) return json({ error: "Unknown player" }, 404);
+
+    player.role = body.role;
+    const engine = getModeEngine(this.roomState.mode);
+    this.roomState.panelState.accessGrants[player.id] = engine.getDefaultAccessTemplate(player.role);
+
+    const now = Date.now();
+    this.roomState.timeline.push(newTimelineEvent("system", `${player.name} assigned role ${player.role}`, now));
+    this.addDebriefEvent({
+      type: "role_assign",
+      message: `Role set: ${player.name} -> ${player.role}`,
+      actorPlayerId: player.id,
+      atEpochMs: now,
+    });
+
+    await this.persist();
+    await this.broadcastSnapshot();
+
+    return json({ state: this.toRoomView() });
+  }
+
+  private async handlePanelAccess(request: Request): Promise<Response> {
+    if (!this.roomState) return json({ error: "Room is not initialized" }, 404);
+
+    const body = await parseJson<SetPanelAccessRequest>(request);
+    if (!this.ensureGmSecret(body.gmSecret)) return json({ error: "Unauthorized" }, 403);
+
+    const player = this.roomState.players.find((candidate) => candidate.id === body.playerId);
+    if (!player) return json({ error: "Unknown player" }, 404);
+
+    const existing = new Set(this.roomState.panelState.accessGrants[player.id] ?? []);
+    if (body.granted) {
+      existing.add(body.panelId);
+    } else {
+      existing.delete(body.panelId);
+    }
+    this.roomState.panelState.accessGrants[player.id] = [...existing];
+
+    const now = Date.now();
+    this.addDebriefEvent({
+      type: "panel_access",
+      message: `${body.granted ? "Granted" : "Revoked"} ${body.panelId} for ${player.name}.`,
+      actorPlayerId: player.id,
+      panelId: body.panelId,
+      atEpochMs: now,
+    });
+
+    await this.persist();
+    await this.broadcastSnapshot();
+    return json({ state: this.toRoomView() });
+  }
+
+  private async handlePanelLock(request: Request): Promise<Response> {
+    if (!this.roomState) return json({ error: "Room is not initialized" }, 404);
+
+    const body = await parseJson<SetPanelLockRequest>(request);
+    if (!this.ensureGmSecret(body.gmSecret)) return json({ error: "Unauthorized" }, 403);
+
+    this.roomState.panelState.panelLocks[body.panelId] = {
+      locked: body.locked,
+      reason: body.reason,
+      atEpochMs: Date.now(),
+    };
+
+    const now = Date.now();
+    this.addDebriefEvent({
+      type: "panel_lock",
+      message: `${body.locked ? "Locked" : "Unlocked"} panel ${body.panelId}.`,
+      panelId: body.panelId,
+      atEpochMs: now,
+    });
+
+    await this.persist();
+    await this.broadcastSnapshot();
+    return json({ state: this.toRoomView() });
+  }
+
+  private async handleSimulateRole(request: Request): Promise<Response> {
+    if (!this.roomState) return json({ error: "Room is not initialized" }, 404);
+
+    const body = await parseJson<SetGmSimulatedRoleRequest>(request);
+    if (!this.ensureGmSecret(body.gmSecret)) return json({ error: "Unauthorized" }, 403);
+
+    if (body.role && !isRoleAllowed(this.roomState.mode, body.role)) {
+      return json({ error: "Role not allowed for this mode" }, 409);
+    }
+
+    this.roomState.panelState.gmSimulatedRole = body.role;
+
+    await this.persist();
+    await this.broadcastSnapshot();
+    return json({ state: this.toRoomView() });
   }
 
   private handleState(request: Request): Response {
@@ -238,18 +497,19 @@ export class GameRoomDurableObject extends DurableObject {
     if (!this.roomState) return json({ error: "Room is not initialized" }, 404);
 
     const playerId = new URL(request.url).searchParams.get("playerId") ?? createId("anon");
+    const connectionId = createId("conn");
 
     return createSseResponse((writer, abortSignal) => {
       const heartbeat = setInterval(() => {
         void sendSseComment(writer, "heartbeat");
       }, 12_000);
 
-      this.clients.set(playerId, { playerId, writer, heartbeat: heartbeat as unknown as number });
+      this.clients.set(connectionId, { connectionId, playerId, writer, heartbeat: heartbeat as unknown as number });
       void sendSseEvent(writer, { type: "snapshot", state: this.toRoomView(playerId) });
 
       abortSignal.addEventListener("abort", () => {
         clearInterval(heartbeat);
-        this.clients.delete(playerId);
+        this.clients.delete(connectionId);
       });
     });
   }
@@ -284,6 +544,43 @@ export class GameRoomDurableObject extends DurableObject {
         this.roomState.endedAtEpochMs = now;
       }
     }
+    if (mutation.debriefAdds?.length) {
+      this.roomState.debriefLog.push(...mutation.debriefAdds);
+    }
+  }
+
+  private computeDebriefMetrics(): DebriefMetrics {
+    if (!this.roomState) {
+      return { executionAccuracy: 0, timingDiscipline: 0, communicationDiscipline: 0, overall: 0 };
+    }
+
+    const actionEvents = this.roomState.debriefLog.filter((event) => event.type === "action").length;
+    const injectEvents = this.roomState.timeline.filter((event) => event.kind === "inject").length;
+    const completedObjectives = this.roomState.objectives.filter((objective) => objective.completed).length;
+
+    const executionAccuracy = Math.max(
+      0,
+      Math.min(100, Math.round((completedObjectives / Math.max(1, this.roomState.objectives.length)) * 100)),
+    );
+
+    const scenarioTimer = this.roomState.scenario.type === "bomb-defusal"
+      ? this.roomState.scenario.timerSec
+      : this.roomState.scenario.timerSec;
+    const timingDiscipline = Math.max(0, Math.min(100, Math.round(scenarioTimer / 6)));
+
+    const communicationDiscipline = Math.max(
+      0,
+      Math.min(100, Math.round(75 + actionEvents * 2 - injectEvents * 10 - this.roomState.pressure / 2)),
+    );
+
+    const overall = Math.round((executionAccuracy + timingDiscipline + communicationDiscipline) / 3);
+
+    return {
+      executionAccuracy,
+      timingDiscipline,
+      communicationDiscipline,
+      overall,
+    };
   }
 
   private toRoomView(playerId?: string): RoomView {
@@ -292,7 +589,24 @@ export class GameRoomDurableObject extends DurableObject {
     }
 
     const player = this.roomState.players.find((candidate) => candidate.id === playerId);
+    const roleOptions = rolesForMode(this.roomState.mode);
+    const effectiveRole = player?.isGameMaster
+      ? this.roomState.panelState.gmSimulatedRole ?? player.role
+      : player?.role ?? "Observer";
+
     const engine = getModeEngine(this.roomState.mode);
+    const panelDeck = engine.buildPanelDeck({
+      state: this.roomState,
+      viewer: player,
+      effectiveRole,
+      panelState: this.roomState.panelState,
+      roleOptions,
+      debriefMetrics: this.computeDebriefMetrics(),
+    });
+
+    const debriefEvents = player?.isGameMaster || this.roomState.status !== "running"
+      ? this.roomState.debriefLog
+      : [];
 
     return {
       roomCode: this.roomState.roomCode,
@@ -307,13 +621,40 @@ export class GameRoomDurableObject extends DurableObject {
       objectives: this.roomState.objectives,
       timeline: this.roomState.timeline,
       publicSummary: this.roomState.publicSummary,
-      scenario: engine.toScenarioView(this.roomState, player),
+      panelDeck,
+      debrief: {
+        events: debriefEvents,
+        metrics: this.computeDebriefMetrics(),
+      },
       yourPlayerId: playerId,
     };
   }
 
+  private addDebriefEvent(input: {
+    type: DebriefEvent["type"];
+    message: string;
+    atEpochMs: number;
+    actorPlayerId?: string;
+    panelId?: ScenePanelId;
+  }): void {
+    if (!this.roomState) {
+      return;
+    }
+
+    this.roomState.debriefLog.push({
+      id: createId("debrief"),
+      type: input.type,
+      message: input.message,
+      atEpochMs: input.atEpochMs,
+      actorPlayerId: input.actorPlayerId,
+      panelId: input.panelId,
+      score: this.roomState.score,
+      pressure: this.roomState.pressure,
+    });
+  }
+
   private async broadcastSnapshot(): Promise<void> {
-    const failedClients: string[] = [];
+    const failedConnections: string[] = [];
 
     for (const [connectionId, conn] of this.clients.entries()) {
       const envelope: GameEventEnvelope = {
@@ -324,11 +665,11 @@ export class GameRoomDurableObject extends DurableObject {
       try {
         await sendSseEvent(conn.writer, envelope);
       } catch {
-        failedClients.push(connectionId);
+        failedConnections.push(connectionId);
       }
     }
 
-    for (const connectionId of failedClients) {
+    for (const connectionId of failedConnections) {
       const conn = this.clients.get(connectionId);
       if (conn) {
         clearInterval(conn.heartbeat);
