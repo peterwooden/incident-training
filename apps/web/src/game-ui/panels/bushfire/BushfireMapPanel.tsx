@@ -235,6 +235,9 @@ export function BushfireMapPanel({
               }}
             >
               <defs>
+                <clipPath id="mapClip">
+                  <rect x={12} y={12} width={696} height={396} rx={20} />
+                </clipPath>
                 <linearGradient id="zoneFill" x1="0" y1="0" x2="0.92" y2="1">
                   <stop offset="0%" stopColor="#4f7d58" stopOpacity="0.36" />
                   <stop offset="45%" stopColor="#2d4a40" stopOpacity="0.42" />
@@ -254,9 +257,18 @@ export function BushfireMapPanel({
                 </filter>
               </defs>
 
-              <BushfireTerrainLayer payload={payload} />
+              <rect x={10} y={10} width={700} height={400} rx={22} className="map-inner-frame" />
+              <g clipPath="url(#mapClip)">
+                {Array.from({ length: 11 }).map((_, idx) => (
+                  <line key={`map_h_${idx}`} x1={12} y1={22 + idx * 36} x2={708} y2={22 + idx * 36} className="map-grid-line" />
+                ))}
+                {Array.from({ length: 14 }).map((_, idx) => (
+                  <line key={`map_v_${idx}`} x1={18 + idx * 50} y1={12} x2={18 + idx * 50} y2={408} className="map-grid-line" />
+                ))}
 
-              {payload.zonePolygons.map((zone) => {
+                <BushfireTerrainLayer payload={payload} />
+
+                {payload.zonePolygons.map((zone) => {
                 const cell = cellById.get(zone.zoneId);
                 if (!cell) {
                   return null;
@@ -269,8 +281,8 @@ export function BushfireMapPanel({
                 const populationPips = Math.max(1, Math.min(5, Math.round(cell.population / 95)));
                 const zonePoints = zone.points.map((point) => `${point.x},${point.y}`).join(" ");
 
-                return (
-                  <g key={zone.zoneId}>
+                  return (
+                    <g key={zone.zoneId}>
                     <polygon
                       points={zone.points.map((point) => `${point.x + 1.5},${point.y + 2}`).join(" ")}
                       className="map-zone-shadow"
@@ -344,80 +356,81 @@ export function BushfireMapPanel({
                           ))}
                       </g>
                     )}
-                  </g>
-                );
-              })}
+                    </g>
+                  );
+                })}
 
-              {payload.windField.map((sample, idx) => (
-                <line
-                  key={`wind_${idx}`}
-                  x1={sample.x}
-                  y1={sample.y}
-                  x2={sample.x + sample.dx * 24}
-                  y2={sample.y + sample.dy * 24}
-                  className="wind-sample"
-                  style={{ opacity: 0.14 + sample.strength * 0.26 }}
-                />
-              ))}
-
-              <g className="wind-glyph" transform={`translate(628 34) rotate(${(windAngle * 180) / Math.PI})`}>
-                <path d="M -24 0 L 16 0 M 16 0 L 6 -8 M 16 0 L 6 8" />
-              </g>
-
-              {payload.assetSlots.map((slot) => (
-                <g key={slot.id} transform={`translate(${slot.x} ${slot.y})`}>
-                  <rect
-                    x={-28}
-                    y={-18}
-                    width={56}
-                    height={36}
-                    rx={11}
-                    className={`asset-slot ${activeTool === slot.type ? "active" : ""} ${isToolEnabled(slot.type) ? "" : "disabled"}`}
-                    role="button"
-                    tabIndex={isToolEnabled(slot.type) ? 0 : -1}
-                    onPointerDown={() => {
-                      if (!isToolEnabled(slot.type)) {
-                        return;
-                      }
-                      setActiveTool(slot.type);
-                      setDragPoint({ x: slot.x, y: slot.y });
-                    }}
-                    onKeyDown={(event) => {
-                      if (!isToolEnabled(slot.type) || !focusedZoneId) {
-                        return;
-                      }
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        commitAction(slot.type, focusedZoneId);
-                      }
-                    }}
-                    style={{ cursor: isToolEnabled(slot.type) ? "grab" : "not-allowed" }}
+                {payload.windField.map((sample, idx) => (
+                  <line
+                    key={`wind_${idx}`}
+                    x1={sample.x}
+                    y1={sample.y}
+                    x2={sample.x + sample.dx * 24}
+                    y2={sample.y + sample.dy * 24}
+                    className="wind-sample"
+                    style={{ opacity: 0.14 + sample.strength * 0.26 }}
                   />
-                  <path d={TOOL_ICON_PATH[slot.type]} className="asset-slot-icon" />
-                  <text x={12} y={4} className="asset-slot-label" textAnchor="middle">
-                    {TOOL_LABEL[slot.type]}
-                  </text>
-                </g>
-              ))}
+                ))}
 
-              {activeTool && dragPoint && (
-                <g className="drag-proxy">
-                  <rect x={dragPoint.x - 22} y={dragPoint.y - 15} width={44} height={30} rx={10} className="drag-token" />
-                  <path d={TOOL_ICON_PATH[activeTool]} className="asset-slot-icon" transform={`translate(${dragPoint.x - 8} ${dragPoint.y})`} />
-                  <text x={dragPoint.x + 11} y={dragPoint.y + 4} textAnchor="middle" className="asset-slot-label">
-                    {TOOL_LABEL[activeTool]}
-                  </text>
+                <g className="wind-glyph" transform={`translate(628 34) rotate(${(windAngle * 180) / Math.PI})`}>
+                  <path d="M -24 0 L 16 0 M 16 0 L 6 -8 M 16 0 L 6 8" />
                 </g>
-              )}
 
-              {dropFeedback && (
-                <circle
-                  cx={dropFeedback.at.x}
-                  cy={dropFeedback.at.y}
-                  r={22 + pulse * 6}
-                  className={`drop-feedback ${dropFeedback.valid ? "valid" : "invalid"}`}
-                />
-              )}
+                {payload.assetSlots.map((slot) => (
+                  <g key={slot.id} transform={`translate(${slot.x} ${slot.y})`}>
+                    <rect
+                      x={-28}
+                      y={-18}
+                      width={56}
+                      height={36}
+                      rx={11}
+                      className={`asset-slot ${activeTool === slot.type ? "active" : ""} ${isToolEnabled(slot.type) ? "" : "disabled"}`}
+                      role="button"
+                      tabIndex={isToolEnabled(slot.type) ? 0 : -1}
+                      onPointerDown={() => {
+                        if (!isToolEnabled(slot.type)) {
+                          return;
+                        }
+                        setActiveTool(slot.type);
+                        setDragPoint({ x: slot.x, y: slot.y });
+                      }}
+                      onKeyDown={(event) => {
+                        if (!isToolEnabled(slot.type) || !focusedZoneId) {
+                          return;
+                        }
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          commitAction(slot.type, focusedZoneId);
+                        }
+                      }}
+                      style={{ cursor: isToolEnabled(slot.type) ? "grab" : "not-allowed" }}
+                    />
+                    <path d={TOOL_ICON_PATH[slot.type]} className="asset-slot-icon" />
+                    <text x={12} y={4} className="asset-slot-label" textAnchor="middle">
+                      {TOOL_LABEL[slot.type]}
+                    </text>
+                  </g>
+                ))}
+
+                {activeTool && dragPoint && (
+                  <g className="drag-proxy">
+                    <rect x={dragPoint.x - 22} y={dragPoint.y - 15} width={44} height={30} rx={10} className="drag-token" />
+                    <path d={TOOL_ICON_PATH[activeTool]} className="asset-slot-icon" transform={`translate(${dragPoint.x - 8} ${dragPoint.y})`} />
+                    <text x={dragPoint.x + 11} y={dragPoint.y + 4} textAnchor="middle" className="asset-slot-label">
+                      {TOOL_LABEL[activeTool]}
+                    </text>
+                  </g>
+                )}
+
+                {dropFeedback && (
+                  <circle
+                    cx={dropFeedback.at.x}
+                    cy={dropFeedback.at.y}
+                    r={22 + pulse * 6}
+                    className={`drop-feedback ${dropFeedback.valid ? "valid" : "invalid"}`}
+                  />
+                )}
+              </g>
             </svg>
           </DepthParallaxGroup>
 

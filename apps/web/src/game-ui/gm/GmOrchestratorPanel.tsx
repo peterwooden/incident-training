@@ -44,16 +44,30 @@ export function GmOrchestratorPanel({
       <div className="visual-stage gm-stage">
         <svg viewBox="0 0 760 220" className="geometry-layer" aria-label="GM tactical overview">
           <rect x={16} y={18} width={728} height={184} rx={18} className="gm-stage-surface" />
+          <circle cx={380} cy={110} r={72} className="gm-core-ring" />
+          <circle cx={380} cy={110} r={46} className="gm-core-ring inner" />
 
-          {payload.cameraTargets.map((target) => (
-            <g key={target.id} className="camera-target">
-              <circle cx={40 + target.x * 680} cy={30 + target.y * 160} r={10 + target.urgency * 14} className="camera-node" />
-              <text x={54 + target.x * 680} y={34 + target.y * 160} className="camera-label">{target.label}</text>
-            </g>
-          ))}
+          {payload.cameraTargets.map((target) => {
+            const cx = 40 + target.x * 680;
+            const cy = 30 + target.y * 160;
+            return (
+              <g key={target.id} className="camera-target">
+                <line x1={380} y1={110} x2={cx} y2={cy} className="gm-link-line" />
+                <circle cx={cx} cy={cy} r={10 + target.urgency * 14} className="camera-node" />
+                <text x={54 + target.x * 680} y={34 + target.y * 160} className="camera-label">{target.label}</text>
+              </g>
+            );
+          })}
 
           {payload.riskHotspots.map((hotspot) => (
             <g key={hotspot.id} className="risk-hotspot">
+              <line
+                x1={380}
+                y1={110}
+                x2={40 + hotspot.x * 680}
+                y2={30 + hotspot.y * 160}
+                className="gm-risk-link"
+              />
               <circle cx={40 + hotspot.x * 680} cy={30 + hotspot.y * 160} r={8 + hotspot.severity * 16} className="risk-node" />
               <text x={52 + hotspot.x * 680} y={26 + hotspot.y * 160} className="risk-hotspot-label">{hotspot.label}</text>
             </g>

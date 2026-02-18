@@ -141,27 +141,45 @@ export function BombDeviceConsolePanel({
             className="fx-layer"
             width={STAGE_WIDTH}
             height={STAGE_HEIGHT}
-            draw={(ctx, width, height, now) =>
-              drawAlarmPulse(ctx, width, height, now, risk, {
-                fxProfile,
-                jitter: payload.shakeIntensity,
-                glowBoost: 0.4 + pulse * 0.3,
-              })
-            }
-          />
+                draw={(ctx, width, height, now) =>
+                  drawAlarmPulse(ctx, width, height, now, risk, {
+                    fxProfile,
+                    jitter: payload.shakeIntensity,
+                    glowBoost: 0.16 + pulse * 0.16,
+                  })
+                }
+              />
 
           <DepthParallaxGroup offsetX={offsetX} offsetY={offsetY} depth={0.65}>
-            <svg
-              viewBox={`0 0 ${STAGE_WIDTH} ${STAGE_HEIGHT}`}
-              className="geometry-layer"
-              role="img"
-              aria-label="Bomb device"
-              style={{ transform: `translate3d(0,0,0) rotate(${payload.shakeIntensity * (fxProfile === "reduced" ? 0.2 : 1.3)}deg)` }}
-            >
+              <svg
+                viewBox={`0 0 ${STAGE_WIDTH} ${STAGE_HEIGHT}`}
+                className="geometry-layer"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Bomb device"
+                style={{ transform: `translate3d(0,0,0) rotate(${payload.shakeIntensity * (fxProfile === "reduced" ? 0.2 : 1.3)}deg)` }}
+              >
               <defs>
                 <linearGradient id="deviceShell" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor={payload.deviceSkin.shellGradient[0]} />
                   <stop offset="100%" stopColor={payload.deviceSkin.shellGradient[1]} />
+                </linearGradient>
+                <linearGradient id="frontPlate" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#1d2f46" stopOpacity="0.9" />
+                  <stop offset="50%" stopColor="#121f34" stopOpacity="0.78" />
+                  <stop offset="100%" stopColor="#0b1525" stopOpacity="0.86" />
+                </linearGradient>
+                <linearGradient id="bayGlass" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#9dc8ff44" />
+                  <stop offset="100%" stopColor="#0a152600" />
+                </linearGradient>
+                <linearGradient id="hazardStripe" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#2c323f" />
+                  <stop offset="20%" stopColor="#c7853e" />
+                  <stop offset="40%" stopColor="#2c323f" />
+                  <stop offset="60%" stopColor="#c7853e" />
+                  <stop offset="80%" stopColor="#2c323f" />
+                  <stop offset="100%" stopColor="#c7853e" />
                 </linearGradient>
                 <linearGradient id="busbarGlow" x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor="#c8d9ff" stopOpacity="0.14" />
@@ -176,7 +194,79 @@ export function BombDeviceConsolePanel({
                 </filter>
               </defs>
 
-              <rect x={12} y={12} width={696} height={256} rx={26} fill="url(#deviceShell)" className="bomb-shell-body" />
+              <rect x={12} y={12} width={696} height={256} rx={26} fill="url(#deviceShell)" opacity={0.2} className="bomb-shell-body" />
+              <rect x={20} y={20} width={680} height={240} rx={22} className="bomb-front-plate" fill="url(#frontPlate)" opacity={0.52} />
+              <rect x={28} y={28} width={664} height={116} rx={16} className="bomb-upper-bay" />
+              <rect x={28} y={150} width={664} height={96} rx={16} className="bomb-lower-bay" />
+              <rect x={28} y={246} width={664} height={14} rx={7} className="bomb-hazard-lip" fill="url(#hazardStripe)" />
+              <rect x={28} y={28} width={664} height={56} rx={16} fill="url(#bayGlass)" />
+
+              <g className="bomb-chassis-screws" aria-hidden="true">
+                {[34, 686].flatMap((x) => [34, 252].map((y) => ({ x, y }))).map((screw, idx) => (
+                  <g key={`screw_${idx}`}>
+                    <circle cx={screw.x} cy={screw.y} r={8.5} className="bomb-screw-head" />
+                    <line x1={screw.x - 4} y1={screw.y} x2={screw.x + 4} y2={screw.y} className="bomb-screw-notch" />
+                  </g>
+                ))}
+              </g>
+
+              <g className="bomb-lower-grid" aria-hidden="true">
+                {Array.from({ length: 11 }).map((_, idx) => (
+                  <line key={`lower_h_${idx}`} x1={44} y1={160 + idx * 8} x2={450} y2={160 + idx * 8} className="bomb-lower-grid-line" />
+                ))}
+                {Array.from({ length: 10 }).map((_, idx) => (
+                  <line key={`lower_v_${idx}`} x1={52 + idx * 40} y1={154} x2={52 + idx * 40} y2={236} className="bomb-lower-grid-line" />
+                ))}
+              </g>
+
+              <g className="bomb-floor-circuits" aria-hidden="true">
+                {Array.from({ length: 10 }).map((_, idx) => (
+                  <line
+                    key={`floor_trace_${idx}`}
+                    x1={52 + idx * 64}
+                    y1={238 + (idx % 3) * 7}
+                    x2={88 + idx * 64}
+                    y2={252 - (idx % 2) * 8}
+                    className="bomb-floor-trace"
+                  />
+                ))}
+                {Array.from({ length: 9 }).map((_, idx) => (
+                  <rect
+                    key={`floor_chip_${idx}`}
+                    x={42 + idx * 74}
+                    y={214 + (idx % 2) * 8}
+                    width={18}
+                    height={10}
+                    rx={3}
+                    className="bomb-floor-chip"
+                  />
+                ))}
+              </g>
+
+              <g className="bomb-diagnostic-bays" aria-hidden="true">
+                <rect x={480} y={152} width={196} height={36} rx={10} className="bomb-diag-bay" />
+                <rect x={480} y={194} width={196} height={42} rx={10} className="bomb-diag-bay" />
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <rect
+                    key={`diag_bar_${idx}`}
+                    x={494}
+                    y={162 + idx * 5}
+                    width={90 + ((idx + 1) % 3) * 22}
+                    height={2.8}
+                    rx={1.4}
+                    className="bomb-diag-bar"
+                  />
+                ))}
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <circle
+                    key={`diag_dot_${idx}`}
+                    cx={628 + idx * 12}
+                    cy={212}
+                    r={3 + (idx === 0 ? pulse * 0.7 : 0)}
+                    className={`bomb-diag-dot ${idx < 2 ? "active" : ""}`}
+                  />
+                ))}
+              </g>
 
               {payload.energyArcs.map((arc) => (
                 <polyline
@@ -262,7 +352,7 @@ export function BombDeviceConsolePanel({
             </svg>
           </DepthParallaxGroup>
 
-          <svg viewBox={`0 0 ${STAGE_WIDTH} ${STAGE_HEIGHT}`} className="interaction-layer" aria-hidden="true">
+          <svg viewBox={`0 0 ${STAGE_WIDTH} ${STAGE_HEIGHT}`} className="interaction-layer" preserveAspectRatio="none" aria-hidden="true">
             {payload.interactionRegions.map((region) => {
               const isDisabled = !region.enabled || !isActionEnabled;
               const cursorStyle = isDisabled ? "not-allowed" : region.cursor;

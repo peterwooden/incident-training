@@ -121,19 +121,53 @@ export function GameHudShell({
 
             <div className="visual-stage mission-stage">
               <svg viewBox="0 0 360 170" className="geometry-layer" aria-label="Mission status">
-                <circle cx={70} cy={84} r={50} className="hud-ring" />
+                <defs>
+                  <linearGradient id="hudDeckGlow" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#86bcff55" />
+                    <stop offset="100%" stopColor="#ff8f6540" />
+                  </linearGradient>
+                  <linearGradient id="hudRingActive" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#ffa66c" />
+                    <stop offset="100%" stopColor="#ff5a43" />
+                  </linearGradient>
+                </defs>
+
+                <rect x={12} y={12} width={336} height={146} rx={18} className="hud-deck-surface" />
+                <rect x={12} y={12} width={336} height={146} rx={18} fill="url(#hudDeckGlow)" opacity={0.3} />
+
+                <circle cx={70} cy={84} r={54} className="hud-ring" />
                 <circle
                   cx={70}
                   cy={84}
-                  r={50}
+                  r={54}
                   className="hud-ring-progress"
-                  style={{ strokeDasharray: `${Math.round((payload.pressure / 100) * 314)} 314` }}
+                  style={{ stroke: "url(#hudRingActive)", strokeDasharray: `${Math.round((payload.pressure / 100) * 339)} 339` }}
                 />
+                <circle cx={70} cy={84} r={36} className="hud-core-disc" />
                 <text x={70} y={90} textAnchor="middle" className="hud-value">{payload.pressure}</text>
-                <text x={146} y={50} className="hud-summary">{payload.summary}</text>
-                <text x={146} y={78} className="hud-slack">{payload.slackReminder}</text>
-                <rect x={146} y={96} width={186} height={44} rx={8} className="hud-status-pill" />
-                <text x={156} y={124} className="hud-status-text">status {payload.status}</text>
+
+                <g className="hud-right-grid">
+                  {Array.from({ length: 5 }).map((_, idx) => (
+                    <line key={`hud_h_${idx}`} x1={146} y1={38 + idx * 20} x2={332} y2={38 + idx * 20} className="hud-grid-line" />
+                  ))}
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <line key={`hud_v_${idx}`} x1={146 + idx * 62} y1={34} x2={146 + idx * 62} y2={118} className="hud-grid-line" />
+                  ))}
+                </g>
+
+                <polyline points="146,86 168,74 186,80 204,60 226,68 246,52 270,62 294,50 332,58" className="hud-wave" />
+
+                <rect x={146} y={124} width={186} height={26} rx={8} className="hud-status-pill" />
+                <text x={156} y={141} className="hud-status-text">status {payload.status}</text>
+
+                <g className="hud-metric-lane">
+                  <rect x={146} y={48} width={56} height={8} rx={4} className="hud-metric-track" />
+                  <rect x={146} y={48} width={Math.max(6, Math.min(56, (payload.timerSec / 600) * 56))} height={8} rx={4} className="hud-metric-fill timer" />
+                  <rect x={214} y={48} width={56} height={8} rx={4} className="hud-metric-track" />
+                  <rect x={214} y={48} width={Math.max(6, Math.min(56, (payload.score / 100) * 56))} height={8} rx={4} className="hud-metric-fill score" />
+                  <rect x={282} y={48} width={50} height={8} rx={4} className="hud-metric-track" />
+                  <rect x={282} y={48} width={Math.max(6, Math.min(50, (payload.pressure / 100) * 50))} height={8} rx={4} className="hud-metric-fill pressure" />
+                </g>
               </svg>
             </div>
           </section>

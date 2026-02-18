@@ -23,15 +23,23 @@ export function BombCoordinationBoardPanel({ payload }: BombCoordinationBoardPan
         <RimLight color="#9ab9ee" intensity={0.2 + pulse * 0.08} />
         <SpecularOverlay intensity={0.18} angleDeg={-12} />
 
-        <div className="coord-lanes" role="img" aria-label="Command confirmation lanes">
-          {payload.checklist.map((item, index) => (
-            <article key={item.id} className={`coord-card ${item.completed ? "complete" : "pending"}`}>
-              <span className="coord-index">{index + 1}</span>
-              <span className="coord-dot" />
-              <p>{item.label}</p>
-            </article>
-          ))}
-        </div>
+        <svg viewBox="0 0 740 164" className="geometry-layer coord-geometry" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Command confirmation lanes">
+          <polyline points="34,84 186,84 338,84 490,84 706,84" className="coord-spine" />
+          {payload.checklist.map((item, index) => {
+            const x = 56 + index * 220;
+            return (
+              <g key={item.id} className={`coord-node ${item.completed ? "complete" : "pending"}`}>
+                <circle cx={x} cy={84} r={20} className="coord-node-shell" />
+                <circle cx={x} cy={84} r={9 + pulse * 0.8} className="coord-node-core" />
+                <text x={x} y={88} textAnchor="middle" className="coord-node-index">{index + 1}</text>
+                <rect x={x - 62} y={112} width={124} height={34} rx={10} className="coord-node-label-bg" />
+                <text x={x} y={133} textAnchor="middle" className="coord-node-label">
+                  {item.label.slice(0, 20)}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
 
         <div className="confirmation-trail" aria-label="Recent confirmations">
           {payload.recentMessages.slice(-6).map((entry, idx) => (
