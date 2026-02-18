@@ -31,23 +31,11 @@ import { PublicInfoPanel } from "../panels/bushfire/PublicInfoPanel";
 import { DebriefReplayPanel } from "../gm/DebriefReplayPanel";
 import { GmOrchestratorPanel } from "../gm/GmOrchestratorPanel";
 import { PanelDashboard } from "./PanelDashboard";
-import { useReducedFx } from "../visuals/core";
-
-const REQUIRED_ROLES: Record<RoomView["mode"], IncidentRole[]> = {
-  "bomb-defusal": ["Lead Coordinator", "Device Specialist", "Manual Analyst", "Safety Officer"],
-  "bushfire-command": [
-    "Incident Controller",
-    "Fire Operations SME",
-    "Police Operations SME",
-    "Public Information Officer",
-  ],
-};
 
 interface GameHudShellProps {
   state: RoomView;
   session: Session;
   error?: string;
-  onStart: (forceStart: boolean) => Promise<void>;
   onAction: (
     actionType: PlayerActionType,
     panelId: ScenePanelId,
@@ -63,32 +51,23 @@ export function GameHudShell({
   state,
   session,
   error,
-  onStart,
   onAction,
   onAssignRole,
   onSetPanelAccess,
   onSetPanelLock,
   onSetSimulatedRole,
 }: GameHudShellProps) {
-  const [forceStart, setForceStart] = useState(false);
   const [rulebookPage, setRulebookPage] = useState(0);
   const [advisoryDraft, setAdvisoryDraft] = useState("Evacuate high-risk sectors immediately.");
   const [debriefIndex, setDebriefIndex] = useState(0);
 
-  const { settings, setMuted, setVolume, triggerCue } = useAudioBus();
-  const fx = useReducedFx();
+  const { triggerCue } = useAudioBus();
 
   const me = useMemo(
     () => state.players.find((player) => player.id === session.playerId),
     [session.playerId, state.players],
   );
   const isGm = Boolean(me?.isGameMaster);
-
-  const missingRequiredRoles = useMemo(() => {
-    const required = REQUIRED_ROLES[state.mode] ?? [];
-    const present = new Set(state.players.map((player) => player.role));
-    return required.filter((role) => !present.has(role));
-  }, [state.mode, state.players]);
 
   useEffect(() => {
     const orderedPanels = state.panelDeck.defaultOrder
@@ -103,7 +82,7 @@ export function GameHudShell({
     if (!panel) {
       return null;
     }
-    const effectiveFxProfile = fx.fxProfile === "reduced" ? "reduced" : panel.fxProfile;
+    const effectiveFxProfile = "cinematic" as const;
 
     switch (panel.id) {
       case "mission_hud": {
@@ -279,49 +258,13 @@ export function GameHudShell({
         </div>
 
         <div className="topbar-controls">
-          <button className="secondary mini" onClick={() => navigator.clipboard.writeText(state.roomCode)}>
-            Copy Code
+          <button
+            className="secondary mini"
+            onClick={() => navigator.clipboard.writeText(`${window.location.origin}/join/${state.roomCode}`)}
+          >
+            Copy Invite Link
           </button>
-
-          <label className="audio-control mini-switch">
-            <input type="checkbox" checked={settings.muted} onChange={(e) => setMuted(e.target.checked)} />
-            mute
-          </label>
-
-          <label className="volume-inline">
-            vol
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={settings.volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
-            />
-          </label>
-
-          <button type="button" className="secondary mini" onClick={fx.toggleFxProfile}>
-            FX {fx.isReducedFx ? "Reduced" : "Cinematic"}
-          </button>
-
-          {isGm && state.status === "lobby" && (
-            <div className="start-controls">
-              {missingRequiredRoles.length > 0 && (
-                <p className="warning-text">Missing: {missingRequiredRoles.join(", ")}</p>
-              )}
-              <label className="mini-switch">
-                <input
-                  type="checkbox"
-                  checked={forceStart}
-                  onChange={(event) => setForceStart(event.target.checked)}
-                />
-                force start
-              </label>
-              <button onClick={() => onStart(forceStart)} disabled={missingRequiredRoles.length > 0 && !forceStart}>
-                Launch
-              </button>
-            </div>
-          )}
+          {isGm && <span className="chip supporting">GM</span>}
         </div>
       </section>
 

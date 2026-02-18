@@ -11,6 +11,7 @@ import {
   subscribeToRoom,
 } from "../api";
 import { useRoomContext } from "../context";
+import { WaitingRoomView } from "../game-ui/lobby/WaitingRoomView";
 import { GameHudShell } from "../game-ui/shell/GameHudShell";
 
 export function RoomPage() {
@@ -21,7 +22,7 @@ export function RoomPage() {
 
   useEffect(() => {
     if (!session || session.roomCode !== roomCode) {
-      navigate("/");
+      navigate(`/join/${encodeURIComponent(roomCode)}`);
       return;
     }
 
@@ -130,12 +131,23 @@ export function RoomPage() {
     }
   };
 
+  if (state.status === "lobby") {
+    return (
+      <WaitingRoomView
+        state={state}
+        session={session}
+        error={error}
+        onAssignRole={onAssignRole}
+        onStart={onStart}
+      />
+    );
+  }
+
   return (
     <GameHudShell
       state={state}
       session={session}
       error={error}
-      onStart={onStart}
       onAction={onAction}
       onAssignRole={onAssignRole}
       onSetPanelAccess={onSetPanelAccess}

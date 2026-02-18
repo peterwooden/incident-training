@@ -50,7 +50,7 @@ export async function handleHttp(request: Request, env: Env): Promise<Response> 
 
     return json({
       roomCode,
-      joinUrl: `/room/${roomCode}`,
+      joinUrl: `/join/${roomCode}`,
       gmPlayerId: payload.gmPlayerId,
       gmSecret: payload.gmSecret,
       state: payload.state,

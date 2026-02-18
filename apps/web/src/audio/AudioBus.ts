@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AudioCue } from "@incident/shared";
 
 const STORAGE_KEY = "incident-rpg-audio-settings";
+const FIXED_GAIN = 0.35;
 
 interface AudioSettings {
   muted: boolean;
-  volume: number;
 }
 
 const CUE_PROFILE: Record<AudioCue, { frequency: number; duration: number }> = {
@@ -20,15 +20,14 @@ function loadSettings(): AudioSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return { muted: false, volume: 0.45 };
+      return { muted: false };
     }
     const parsed = JSON.parse(raw) as AudioSettings;
     return {
       muted: Boolean(parsed.muted),
-      volume: Math.max(0, Math.min(1, Number(parsed.volume) || 0.45)),
     };
   } catch {
-    return { muted: false, volume: 0.45 };
+    return { muted: false };
   }
 }
 
@@ -75,7 +74,7 @@ export function useAudioBus() {
       oscillator.frequency.value = profile.frequency;
 
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, settings.volume), now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(FIXED_GAIN, now + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + profile.duration);
 
       oscillator.connect(gain);
@@ -84,17 +83,14 @@ export function useAudioBus() {
       oscillator.start(now);
       oscillator.stop(now + profile.duration + 0.01);
     },
-    [ensureContext, settings.muted, settings.volume],
+    [ensureContext, settings.muted],
   );
 
   const controls = useMemo(
     () => ({
-      settings,
-      setMuted: (muted: boolean) => setSettings((prev) => ({ ...prev, muted })),
-      setVolume: (volume: number) => setSettings((prev) => ({ ...prev, volume: Math.max(0, Math.min(1, volume)) })),
       triggerCue,
     }),
-    [settings, triggerCue],
+    [triggerCue],
   );
 
   return controls;

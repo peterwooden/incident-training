@@ -1,60 +1,63 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { GameMode, IncidentRole } from "@incident/shared";
-import { createRoom, joinRoom } from "../api";
+import type { GameMode } from "@incident/shared";
+import { createRoom } from "../api";
 import { useRoomContext } from "../context";
 
-const MODE_ROLES: Record<GameMode, IncidentRole[]> = {
+const MODE_CARDS: Array<{
+  mode: GameMode;
+  emoji: string;
+  title: string;
+  description: string;
+}> = [
+  {
+    mode: "bomb-defusal",
+    emoji: "💣",
+    title: "Bomb Defusal",
+    description: "Role-asymmetric gauntlet where specialists coordinate to clear staged modules under pressure.",
+  },
+  {
+    mode: "bushfire-command",
+    emoji: "🔥",
+    title: "Bushfire Command",
+    description: "Multi-role wildfire response simulation with tactical map control, evacuations, and public messaging.",
+  },
+];
+
+const MODE_RITUAL: Record<GameMode, string[]> = {
   "bomb-defusal": [
-    "Lead Coordinator",
-    "Device Specialist",
-    "Manual Analyst",
-    "Safety Officer",
-    "Observer",
+    "Create a Slack channel for all role callouts.",
+    "Assign Device Specialist, Manual Analyst, Safety Officer, and Lead Coordinator.",
+    "Enforce verbal confirmation loops before critical actions.",
   ],
   "bushfire-command": [
-    "Incident Controller",
-    "Fire Operations SME",
-    "Police Operations SME",
-    "Public Information Officer",
-    "Observer",
+    "Create a Slack channel for command comms.",
+    "Assign Incident Controller, Fire Ops, Police Ops, and Public Info Officer.",
+    "Use map interactions as execution surface and Slack for coordination only.",
   ],
 };
 
 export function HomePage() {
   const [gmName, setGmName] = useState("Facilitator");
   const [mode, setMode] = useState<GameMode>("bomb-defusal");
-  const [joinCode, setJoinCode] = useState("");
-  const [joinName, setJoinName] = useState("Player");
-  const [joinRole, setJoinRole] = useState<IncidentRole>("Observer");
   const [error, setError] = useState<string | undefined>();
+  const [creatingMode, setCreatingMode] = useState<GameMode | undefined>(undefined);
 
   const navigate = useNavigate();
   const { setSession, setState } = useRoomContext();
 
-  const roleOptions = useMemo(() => MODE_ROLES[mode], [mode]);
-
-  const onCreate = async () => {
+  const onCreate = async (selectedMode: GameMode) => {
     setError(undefined);
+    setCreatingMode(selectedMode);
     try {
-      const created = await createRoom({ gmName, mode });
+      const created = await createRoom({ gmName, mode: selectedMode });
       setSession({ roomCode: created.roomCode, playerId: created.gmPlayerId, gmSecret: created.gmSecret });
       setState(created.state);
       navigate(`/room/${encodeURIComponent(created.roomCode)}`);
     } catch (err) {
       setError((err as Error).message);
-    }
-  };
-
-  const onJoin = async () => {
-    setError(undefined);
-    try {
-      const joined = await joinRoom(joinCode, { name: joinName, preferredRole: joinRole });
-      setSession({ roomCode: joinCode, playerId: joined.playerId });
-      setState(joined.state);
-      navigate(`/room/${encodeURIComponent(joinCode)}`);
-    } catch (err) {
-      setError((err as Error).message);
+    } finally {
+      setCreatingMode(undefined);
     }
   };
 
@@ -62,59 +65,36 @@ export function HomePage() {
     <main className="landing-shell">
       <section className="landing-hero">
         <p className="eyebrow">Cinematic Team Simulation</p>
-        <h1>Scene Panel Crisis Games</h1>
+        <h1>Incident Training RPG</h1>
         <p>
-          Real-time multiplayer drills with strict information asymmetry. Run communication in Slack, execute operations in the game.
+          Launch a session, share the invite link, assign roles in the waiting room, then start.
         </p>
-        <div className="mode-selector">
-          <button className={mode === "bomb-defusal" ? "active" : ""} onClick={() => setMode("bomb-defusal")}>Bomb Defusal</button>
-          <button className={mode === "bushfire-command" ? "active" : ""} onClick={() => setMode("bushfire-command")}>Bushfire Command</button>
-        </div>
-      </section>
-
-      <section className="landing-card">
-        <h2>Create Room (GM)</h2>
         <label>
           Facilitator Name
           <input value={gmName} onChange={(event) => setGmName(event.target.value)} />
         </label>
-        <label>
-          Scenario
-          <select value={mode} onChange={(event) => setMode(event.target.value as GameMode)}>
-            <option value="bomb-defusal">Bomb Defusal</option>
-            <option value="bushfire-command">Bushfire Command</option>
-          </select>
-        </label>
-        <button onClick={onCreate}>Create Session</button>
       </section>
 
-      <section className="landing-card">
-        <h2>Join Room</h2>
-        <label>
-          Room Code
-          <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} />
-        </label>
-        <label>
-          Display Name
-          <input value={joinName} onChange={(event) => setJoinName(event.target.value)} />
-        </label>
-        <label>
-          Requested Role
-          <select value={joinRole} onChange={(event) => setJoinRole(event.target.value as IncidentRole)}>
-            {roleOptions.map((role) => (
-              <option key={role} value={role}>{role}</option>
-            ))}
-          </select>
-        </label>
-        <button onClick={onJoin}>Join Session</button>
-      </section>
+      {MODE_CARDS.map((card) => (
+        <section
+          key={card.mode}
+          className={`landing-card mode-card ${mode === card.mode ? "active" : ""}`}
+          onMouseEnter={() => setMode(card.mode)}
+        >
+          <h2>{card.emoji} {card.title}</h2>
+          <p>{card.description}</p>
+          <button onClick={() => void onCreate(card.mode)} disabled={creatingMode !== undefined}>
+            {creatingMode === card.mode ? "Starting..." : "Start Session"}
+          </button>
+        </section>
+      ))}
 
       <section className="landing-card ritual-card">
         <h2>Facilitator Ritual</h2>
         <ol>
-          <li>Create dedicated Slack channel and call.</li>
-          <li>Assign roles in lobby before launch.</li>
-          <li>Remind team: no in-app chat, only Slack comms.</li>
+          {MODE_RITUAL[mode].map((step) => (
+            <li key={step}>{step}</li>
+          ))}
         </ol>
       </section>
 

@@ -38,6 +38,12 @@ body {
   min-height: 100vh;
 }
 
+html,
+body,
+#root {
+  overflow-x: hidden;
+}
+
 button,
 input,
 select,
@@ -99,6 +105,11 @@ ul {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 
+.join-shell {
+  grid-template-columns: minmax(280px, 520px);
+  justify-content: center;
+}
+
 .landing-hero,
 .landing-card {
   border: 1px solid var(--line);
@@ -110,6 +121,20 @@ ul {
 
 .landing-hero {
   grid-column: 1 / -1;
+}
+
+.mode-card {
+  display: grid;
+  gap: 0.6rem;
+  align-content: space-between;
+}
+
+.mode-card h2 {
+  margin-bottom: 0.2rem;
+}
+
+.join-card {
+  max-width: 520px;
 }
 
 .eyebrow {
@@ -143,18 +168,21 @@ ul {
 .game-topbar {
   border: 1px solid var(--line);
   border-radius: 18px;
-  padding: 1rem;
+  padding: 0.72rem 0.88rem;
   background: linear-gradient(165deg, #142031f2, #2a1d2af0);
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1rem;
+  grid-template-columns: 2fr auto;
+  gap: 0.7rem;
   box-shadow: var(--depth-shadow);
 }
 
 .topbar-controls {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
   align-content: start;
-  gap: 0.42rem;
+  gap: 0.4rem;
 }
 
 .topbar-chipline {
@@ -207,6 +235,63 @@ ul {
   border-radius: 12px;
   padding: 0.55rem;
   background: #0f1624;
+}
+
+.waiting-room-shell {
+  grid-template-columns: 1fr;
+}
+
+.waiting-room-header,
+.waiting-room-roster,
+.waiting-room-start,
+.waiting-room-note {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(164deg, #14233af2, #1c2234f1);
+  padding: 0.9rem;
+}
+
+.waiting-room-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.waiting-room-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.waiting-player-grid {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.waiting-player-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0f1828;
+  padding: 0.55rem;
+}
+
+.waiting-player-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.42rem;
+}
+
+.waiting-player-card select {
+  margin: 0;
+}
+
+.waiting-role-label {
+  margin: 0;
+  color: #d7e3f7;
 }
 
 .warning-text {
