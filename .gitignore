@@ -8,4 +8,4 @@ apps/web/src/**/*.js
 apps/web/functions/**/*.js
 packages/shared/src/*.js
 artifacts/
- 
+.env 
