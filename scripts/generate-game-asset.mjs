@@ -1,18 +1,32 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+const DEFAULT_SOURCE_FILE = "scripts/asset-prompts.json";
 
 function printUsage(exitCode = 0) {
   const lines = [
     "Generate game art assets via trusted provider APIs (OpenAI or Gemini).",
     "",
-    "Usage:",
+    "Single asset mode:",
     "  node scripts/generate-game-asset.mjs --provider <openai|gemini> --prompt \"...\" --out <path>",
     "",
+    "Source compile mode:",
+    "  node scripts/generate-game-asset.mjs --source scripts/asset-prompts.json --all",
+    "  node scripts/generate-game-asset.mjs --source scripts/asset-prompts.json --asset bomb-chassis-hero",
+    "",
     "Common options:",
+    "  --source <file>              Source manifest JSON",
+    "  --asset <id[,id,...]>        Compile only selected source asset IDs",
+    "  --all                        Compile every source asset",
+    "  --list                       List asset IDs in source and exit",
+    "  --dry-run                    Show planned compile tasks without API calls",
+    "  --env-file <path>            Override env file path (default: .env)",
+    "",
+    "Single mode options:",
     "  --provider <openai|gemini>   Default: openai",
-    "  --prompt <text>              Required",
-    "  --out <file>                 Required output path",
+    "  --prompt <text>              Required in single mode",
+    "  --out <file>                 Required in single mode",
     "  --n <count>                  Number of images (default: 1)",
     "",
     "OpenAI options:",
@@ -26,13 +40,9 @@ function printUsage(exitCode = 0) {
     "  --model <id>                 Default: gemini-2.5-flash-image",
     "  --aspect <1:1|4:3|3:4|16:9|9:16>  Default: 16:9",
     "",
-    "Env vars:",
-    "  OPENAI_API_KEY   Required for provider=openai",
-    "  GEMINI_API_KEY   Required for provider=gemini",
-    "",
-    "Examples:",
-    "  npm run asset:gen:openai -- --prompt \"cinematic bomb console concept art, no text\" --out apps/web/src/game-ui/visuals/assets/generated/bomb-console.png",
-    "  npm run asset:gen:gemini -- --prompt \"top-down lush bushfire town map, green terrain, roads, river\" --out apps/web/src/game-ui/visuals/assets/generated/town-map.png",
+    "Env vars (auto-loaded from .env if present):",
+    "  OPENAI_API_KEY",
+    "  GEMINI_API_KEY",
   ];
   console.log(lines.join("\n"));
   process.exit(exitCode);
@@ -55,6 +65,10 @@ function parseArgs(argv) {
     }
   }
   return args;
+}
+
+function isTrue(value) {
+  return ["1", "true", "yes", "on"].includes(String(value ?? "").toLowerCase());
 }
 
 function toInt(value, fallback) {
@@ -91,6 +105,53 @@ function deriveOutputPath(baseOut, index, total, fallbackExt) {
   return path.join(parsed.dir, `${parsed.name}${suffix}${finalExt}`);
 }
 
+function parseEnvLine(line) {
+  const clean = line.trim();
+  if (!clean || clean.startsWith("#")) {
+    return null;
+  }
+
+  const normalized = clean.startsWith("export ") ? clean.slice(7).trim() : clean;
+  const splitIdx = normalized.indexOf("=");
+  if (splitIdx <= 0) {
+    return null;
+  }
+
+  const key = normalized.slice(0, splitIdx).trim();
+  let value = normalized.slice(splitIdx + 1).trim();
+
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+
+  value = value.replace(/\\n/g, "\n");
+  return { key, value };
+}
+
+async function loadEnvFileIfPresent(envFilePath) {
+  try {
+    const content = await readFile(envFilePath, "utf8");
+    for (const line of content.split(/\r?\n/)) {
+      const parsed = parseEnvLine(line);
+      if (!parsed) {
+        continue;
+      }
+      if (process.env[parsed.key] === undefined) {
+        process.env[parsed.key] = parsed.value;
+      }
+    }
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
 async function parseJsonResponse(response) {
   const text = await response.text();
   try {
@@ -109,23 +170,24 @@ async function fetchImageBuffer(url) {
   return Buffer.from(arrayBuffer);
 }
 
-async function generateViaOpenAI({ prompt, n, args }) {
+async function generateViaOpenAI(config) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is missing.");
   }
 
-  const model = args.model ?? "gpt-image-1";
-  const size = args.size ?? "1536x1024";
-  const quality = args.quality ?? "high";
-  const background = args.background ?? "transparent";
-  const format = args.format ?? "png";
+  const model = config.model ?? "gpt-image-1";
+  const size = config.size ?? "1536x1024";
+  const quality = config.quality ?? "high";
+  const background = config.background ?? "transparent";
+  const format = config.format ?? "png";
+  const n = toInt(config.n, 1);
   const baseUrl = (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "");
   const endpoint = `${baseUrl}/images/generations`;
 
   const requestBody = {
     model,
-    prompt,
+    prompt: config.prompt,
     n,
     size,
     quality,
@@ -166,21 +228,22 @@ async function generateViaOpenAI({ prompt, n, args }) {
   return images;
 }
 
-async function generateViaGemini({ prompt, n, args }) {
+async function generateViaGemini(config) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is missing.");
   }
 
-  const model = args.model ?? "gemini-2.5-flash-image";
-  const aspect = args.aspect ?? "16:9";
+  const model = config.model ?? "gemini-2.5-flash-image";
+  const aspect = config.aspect ?? "16:9";
+  const n = toInt(config.n, 1);
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
   const requestBody = {
     contents: [
       {
         role: "user",
-        parts: [{ text: prompt }],
+        parts: [{ text: config.prompt }],
       },
     ],
     generationConfig: {
@@ -230,45 +293,174 @@ async function generateViaGemini({ prompt, n, args }) {
   return images;
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  if (args.help === "true" || args.h === "true") {
-    printUsage(0);
+function normalizeConfig(base) {
+  return {
+    ...base,
+    provider: String(base.provider ?? "openai").toLowerCase(),
+    n: toInt(base.n, 1),
+  };
+}
+
+function ensureTaskConfig(config, contextLabel) {
+  if (!config.prompt) {
+    throw new Error(`${contextLabel}: missing prompt`);
   }
-
-  const prompt = args.prompt;
-  const out = args.out;
-  if (!prompt || !out) {
-    printUsage(1);
+  if (!config.out) {
+    throw new Error(`${contextLabel}: missing out`);
   }
-
-  const provider = String(args.provider ?? "openai").toLowerCase();
-  const n = toInt(args.n, 1);
-
-  let images;
-  if (provider === "openai") {
-    images = await generateViaOpenAI({ prompt, n, args });
-  } else if (provider === "gemini") {
-    images = await generateViaGemini({ prompt, n, args });
-  } else {
-    throw new Error(`Unsupported provider: ${provider}`);
+  if (!config.provider) {
+    throw new Error(`${contextLabel}: missing provider`);
   }
+}
 
-  await mkdir(path.dirname(out), { recursive: true });
-
+async function writeGeneratedImages(config, images) {
+  await mkdir(path.dirname(config.out), { recursive: true });
   const writtenPaths = [];
   for (let i = 0; i < images.length; i += 1) {
     const image = images[i];
     const fallbackExt = extensionFromMimeType(image.mimeType);
-    const outputPath = deriveOutputPath(out, i, images.length, fallbackExt);
+    const outputPath = deriveOutputPath(config.out, i, images.length, fallbackExt);
     await writeFile(outputPath, image.buffer);
     writtenPaths.push(outputPath);
   }
+  return writtenPaths;
+}
 
-  console.log(`Generated ${writtenPaths.length} image asset(s):`);
-  for (const item of writtenPaths) {
-    console.log(`- ${item}`);
+async function compileTask(config) {
+  const normalized = normalizeConfig(config);
+  ensureTaskConfig(normalized, normalized.id ?? normalized.out);
+
+  let images;
+  if (normalized.provider === "openai") {
+    images = await generateViaOpenAI(normalized);
+  } else if (normalized.provider === "gemini") {
+    images = await generateViaGemini(normalized);
+  } else {
+    throw new Error(`Unsupported provider: ${normalized.provider}`);
   }
+
+  return writeGeneratedImages(normalized, images);
+}
+
+async function loadSourceManifest(sourcePath) {
+  const raw = await readFile(sourcePath, "utf8");
+  const parsed = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Invalid source manifest.");
+  }
+  const defaults = parsed.defaults && typeof parsed.defaults === "object" ? parsed.defaults : {};
+  const assets = Array.isArray(parsed.assets) ? parsed.assets : [];
+  return { defaults, assets };
+}
+
+function parseAssetIdFilter(raw) {
+  if (!raw) {
+    return [];
+  }
+  return String(raw)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function listSourceAssets(assets) {
+  for (const asset of assets) {
+    if (asset?.id) {
+      console.log(asset.id);
+    }
+  }
+}
+
+function buildSourceTasks(manifest, args) {
+  const requestedIds = parseAssetIdFilter(args.asset);
+  const allSourceTasks = manifest.assets.map((asset) => normalizeConfig({ ...manifest.defaults, ...asset }));
+
+  if (requestedIds.length === 0) {
+    return allSourceTasks;
+  }
+
+  const filtered = allSourceTasks.filter((task) => requestedIds.includes(String(task.id)));
+  if (filtered.length !== requestedIds.length) {
+    const found = new Set(filtered.map((task) => String(task.id)));
+    const missing = requestedIds.filter((id) => !found.has(id));
+    throw new Error(`Unknown source asset id(s): ${missing.join(", ")}`);
+  }
+  return filtered;
+}
+
+async function compileFromSource(args) {
+  const sourcePath = path.resolve(String(args.source || DEFAULT_SOURCE_FILE));
+  const manifest = await loadSourceManifest(sourcePath);
+
+  if (isTrue(args.list)) {
+    listSourceAssets(manifest.assets);
+    return;
+  }
+
+  const tasks = buildSourceTasks(manifest, args);
+  if (tasks.length === 0) {
+    throw new Error("No source tasks to compile.");
+  }
+
+  if (isTrue(args["dry-run"])) {
+    for (const task of tasks) {
+      console.log(`[dry-run] ${task.id ?? task.out} -> ${task.out}`);
+    }
+    return;
+  }
+
+  for (const task of tasks) {
+    const written = await compileTask(task);
+    console.log(`Generated ${written.length} image asset(s) for ${task.id ?? task.out}:`);
+    for (const outPath of written) {
+      console.log(`- ${outPath}`);
+    }
+  }
+}
+
+async function compileSingle(args) {
+  const config = normalizeConfig({
+    provider: args.provider ?? "openai",
+    prompt: args.prompt,
+    out: args.out,
+    n: args.n,
+    model: args.model,
+    size: args.size,
+    quality: args.quality,
+    background: args.background,
+    format: args.format,
+    aspect: args.aspect,
+  });
+
+  ensureTaskConfig(config, "single mode");
+
+  if (isTrue(args["dry-run"])) {
+    console.log(`[dry-run] single -> ${config.out}`);
+    return;
+  }
+
+  const written = await compileTask(config);
+  console.log(`Generated ${written.length} image asset(s):`);
+  for (const outPath of written) {
+    console.log(`- ${outPath}`);
+  }
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  if (isTrue(args.help) || isTrue(args.h)) {
+    printUsage(0);
+  }
+
+  const envFilePath = path.resolve(String(args["env-file"] || ".env"));
+  await loadEnvFileIfPresent(envFilePath);
+
+  if (args.source || isTrue(args.all) || isTrue(args.list) || args.asset) {
+    await compileFromSource(args);
+    return;
+  }
+
+  await compileSingle(args);
 }
 
 main().catch((error) => {

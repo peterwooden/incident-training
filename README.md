@@ -63,11 +63,12 @@ npm run test:e2e
 
 ## AI Asset Pipeline
 
-Generate local sprites/backgrounds with your own OpenAI or Gemini account keys:
+Prompt source + compiled artifact workflow:
 
 ```bash
-npm run asset:gen:openai -- --prompt "..." --out apps/web/src/game-ui/visuals/assets/generated/example.png
-npm run asset:gen:gemini -- --prompt "..." --out apps/web/src/game-ui/visuals/assets/generated/example.png
+npm run asset:build
+npm run asset:build -- --asset bomb-chassis-hero
+npm run asset:list
 ```
 
 Detailed usage: `/Users/peterwooden/incident-training-rpg/docs/asset-generation.md`

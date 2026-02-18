@@ -1,6 +1,10 @@
 # AI Asset Generation (OpenAI + Gemini)
 
-This repo includes a local script to generate image assets directly into the game visual folders using official provider APIs.
+This repo treats prompts as source code and generated images as compiled artifacts.
+
+- Source: `/Users/peterwooden/incident-training-rpg/scripts/asset-prompts.json`
+- Compiler: `/Users/peterwooden/incident-training-rpg/scripts/generate-game-asset.mjs`
+- Artifacts: `/Users/peterwooden/incident-training-rpg/apps/web/src/game-ui/visuals/assets/generated/`
 
 ## Why this path
 
@@ -8,63 +12,67 @@ This repo includes a local script to generate image assets directly into the gam
 - Your own account keys: no third-party relay service.
 - Works with current `SVG+Canvas` scene panel architecture (generate textures/sprites, then compose in UI).
 
-## Script
-
-`/Users/peterwooden/incident-training-rpg/scripts/generate-game-asset.mjs`
-
 ## Prerequisites
 
-1. Set one API key:
-   - `OPENAI_API_KEY` for OpenAI
-   - `GEMINI_API_KEY` for Google Gemini
+1. Set one API key in repo root `.env`:
+   - `OPENAI_API_KEY=...` for OpenAI
+   - `GEMINI_API_KEY=...` for Google Gemini
 2. Pick output path in your local asset tree, e.g.:
    - `/Users/peterwooden/incident-training-rpg/apps/web/src/game-ui/visuals/assets/generated/`
 
+The compiler auto-loads `.env` by itself. Shell-level env vars still override `.env` values.
+
 ## Commands
 
-OpenAI:
+Compile all source prompts:
+
+```bash
+npm run asset:build
+```
+
+Compile one asset by ID (surgical rebuild):
+
+```bash
+npm run asset:build -- --asset bushfire-town-base-v2
+```
+
+List available IDs:
+
+```bash
+npm run asset:list
+```
+
+Dry run:
+
+```bash
+npm run asset:build -- --dry-run
+```
+
+Single ad-hoc generation (outside source manifest):
 
 ```bash
 npm run asset:gen:openai -- \
-  --prompt "top-down lush bushfire town map, green terrain, roads, river, no labels" \
-  --out apps/web/src/game-ui/visuals/assets/generated/bushfire-town-map.png \
-  --size 1536x1024 \
-  --quality high \
-  --background opaque
-```
-
-Gemini:
-
-```bash
-npm run asset:gen:gemini -- \
   --prompt "cinematic bomb console panel, industrial metal, layered electronics, no text" \
-  --out apps/web/src/game-ui/visuals/assets/generated/bomb-console.png \
-  --aspect 16:9
+  --out apps/web/src/game-ui/visuals/assets/generated/bomb-console.png
 ```
-
-Multi-image batch:
-
-```bash
-npm run asset:gen:openai -- \
-  --prompt "wildfire map landmark icons, emergency services, transparent background" \
-  --out apps/web/src/game-ui/visuals/assets/generated/landmarks/icon.png \
-  --n 4
-```
-
-When `--n > 1`, files are suffixed automatically (`icon-01.png`, `icon-02.png`, ...).
 
 ## Prompt presets
 
-Preset starter prompts are in:
+Prompt source entries in `scripts/asset-prompts.json` support:
 
-`/Users/peterwooden/incident-training-rpg/scripts/asset-prompts.json`
+- `id`: stable build target ID
+- `prompt`: full canonical prompt (keep this complete to avoid regressions)
+- `out`: compiled image output path
+- optional generation options (`provider`, `model`, `size`, `quality`, `background`, `format`, `aspect`, `n`)
+
+Global defaults are under `defaults`.
 
 ## Recommended production workflow
 
-1. Generate broad concepts at medium quality.
-2. Pick top candidate and regenerate with tighter art direction.
-3. Cut/optimize in local tooling.
-4. Import into panel layers (`map`, `bomb`, `manual`) with deterministic game-state overlays.
+1. Edit only the target prompt in `scripts/asset-prompts.json`.
+2. Rebuild only that asset ID via `npm run asset:build -- --asset <id>`.
+3. Review panel visuals.
+4. Commit source prompt + compiled artifact together.
 
 ## Notes on `llm` CLI (Simon Willison)
 

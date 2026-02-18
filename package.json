@@ -19,6 +19,8 @@
     "asset:gen": "node scripts/generate-game-asset.mjs",
     "asset:gen:openai": "node scripts/generate-game-asset.mjs --provider openai",
     "asset:gen:gemini": "node scripts/generate-game-asset.mjs --provider gemini",
+    "asset:build": "node scripts/generate-game-asset.mjs --source scripts/asset-prompts.json --all",
+    "asset:list": "node scripts/generate-game-asset.mjs --source scripts/asset-prompts.json --list",
     "dev:api": "npm run -w apps/api dev",
     "dev:web": "npm run -w apps/web dev"
   }
