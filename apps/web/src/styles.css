@@ -163,6 +163,7 @@ ul {
   padding: 1rem;
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .game-topbar {
@@ -303,6 +304,7 @@ ul {
   gap: 0.9rem;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   align-items: start;
+  min-width: 0;
 }
 
 .panel-slot {
@@ -318,6 +320,7 @@ ul {
     linear-gradient(165deg, #182239f2, #1a1f2ff3);
   box-shadow: var(--depth-shadow);
   padding: 0.85rem;
+  min-width: 0;
 }
 
 .visual-heavy {
@@ -535,6 +538,7 @@ ul {
 .bomb-stage {
   min-height: 0;
   aspect-ratio: 720 / 320;
+  overflow: clip;
 }
 
 .bomb-stage .geometry-layer,
@@ -549,6 +553,11 @@ ul {
 .bomb-stage-root > .depth-parallax-group {
   position: absolute;
   inset: 0;
+}
+
+.bomb-device-panel,
+.bomb-stage-root {
+  overflow: clip;
 }
 
 .bomb-shell-body {
@@ -1559,12 +1568,14 @@ ul {
   border-radius: 16px;
   padding: 0.8rem;
   background: #101a2a;
+  min-width: 0;
 }
 
 .timeline-chip-lane {
   display: flex;
   gap: 0.34rem;
   overflow-x: auto;
+  min-width: 0;
 }
 
 .timeline-chip {
@@ -1574,6 +1585,9 @@ ul {
   background: #111d30;
   font-size: 0.76rem;
   white-space: nowrap;
+  max-width: min(58vw, 360px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .timeline-chip.inject {
@@ -1796,6 +1810,12 @@ ul {
 .interaction-hit.enabled:hover {
   stroke: #ffffff46;
   fill: #ffffff18;
+}
+
+.interaction-hit:focus-visible {
+  stroke: #ffffff50;
+  stroke-width: 2;
+  outline: none;
 }
 
 .interaction-hit.disabled {

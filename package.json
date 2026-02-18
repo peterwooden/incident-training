@@ -14,6 +14,7 @@
     "build": "npm run --workspaces build",
     "test": "npm run --workspaces test",
     "test:e2e": "npm run -w apps/api test:e2e",
+    "test:layout-overflow": "playwright test apps/web/tests/layout-overflow.spec.ts",
     "check:visual-budget": "node scripts/check-visual-budget.mjs",
     "capture:visual": "node scripts/capture-visual-snapshots.mjs",
     "asset:gen": "node scripts/generate-game-asset.mjs",
