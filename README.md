@@ -61,6 +61,28 @@ npm run test
 npm run test:e2e
 ```
 
+## GitHub Actions Cloudflare Deployment
+
+The CI workflow deploys only on pushes to `main` after all checks pass.
+
+- Pull requests run checks (`verify` + `visual-regression`) only.
+- Pushes to `main` run checks and then deploy both API + web.
+
+Set these repository secrets in GitHub (`Settings` -> `Secrets and variables` -> `Actions`):
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+Recommended `CLOUDFLARE_API_TOKEN` permissions:
+
+- Worker deploy permissions for the API worker deployment.
+- Cloudflare Pages deploy permissions for the web deployment.
+
+One-time Cloudflare prerequisites:
+
+- Worker name is `incident-training-api` (matches `apps/api/wrangler.jsonc`).
+- Pages project name is `incident-training-web` (matches workflow deploy command).
+
 ## AI Asset Pipeline
 
 Prompt source + compiled artifact workflow:
