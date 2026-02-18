@@ -16,6 +16,9 @@
     "test:e2e": "npm run -w apps/api test:e2e",
     "check:visual-budget": "node scripts/check-visual-budget.mjs",
     "capture:visual": "node scripts/capture-visual-snapshots.mjs",
+    "asset:gen": "node scripts/generate-game-asset.mjs",
+    "asset:gen:openai": "node scripts/generate-game-asset.mjs --provider openai",
+    "asset:gen:gemini": "node scripts/generate-game-asset.mjs --provider gemini",
     "dev:api": "npm run -w apps/api dev",
     "dev:web": "npm run -w apps/web dev"
   }
