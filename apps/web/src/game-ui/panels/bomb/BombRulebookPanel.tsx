@@ -48,6 +48,7 @@ export function BombRulebookPanel({
       <header className="panel-chip-row">
         <h3>Manual Flipbook</h3>
         <div className="chip-strip">
+          <span className="chip">{payload.stageTitle}</span>
           <span className="chip">{pageLabel}</span>
           <span className="chip supporting">hotspots {spread.hotspots.length}</span>
         </div>

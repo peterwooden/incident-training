@@ -1,4 +1,4 @@
-export const ROOM_SCHEMA_VERSION = 2;
+export const ROOM_SCHEMA_VERSION = 3;
 
 export type GameMode = "bomb-defusal" | "bushfire-command";
 
@@ -80,18 +80,38 @@ export interface BombWire {
 
 export interface BombSymbolModule {
   availableSymbols: string[];
+  precedenceOrder: string[];
   targetSequence: string[];
+  enteredSequence: string[];
+}
+
+export type BombStageId = "wires" | "symbols" | "memory";
+export type BombStageStatus = "active" | "intermission";
+
+export interface BombMemoryModule {
+  cues: number[];
   enteredSequence: string[];
 }
 
 export interface BombScenarioState {
   type: "bomb-defusal";
   timerSec: number;
+  stageId: BombStageId;
+  stageIndex: number;
+  stageTimerSec: number;
+  stageStatus: BombStageStatus;
+  strikeCarry: number;
+  moduleQueue: BombStageId[];
+  completedStages: BombStageId[];
+  intermissionUntilEpochMs?: number;
   strikes: number;
   maxStrikes: number;
+  stabilizeCharges: number;
   status: "armed" | "defused" | "exploded";
+  wireProgress: number;
   wires: BombWire[];
   symbolModule: BombSymbolModule;
+  memoryModule: BombMemoryModule;
   deviceReadouts: string[];
   manualPages: Array<{ id: string; title: string; sections: string[] }>;
   confirmationLedger: Array<{ atEpochMs: number; message: string }>;
@@ -275,12 +295,28 @@ export interface InteractionRegion {
 
 export interface BombDeviceConsolePayload {
   status: BombScenarioState["status"];
+  stageId: BombStageId;
+  stageIndex: number;
+  totalStages: number;
+  stageTimerSec: number;
+  stageStatus: BombStageStatus;
+  completedStages: BombStageId[];
+  stageObjective: string;
   timerSec: number;
   strikes: number;
   maxStrikes: number;
+  stabilizeCharges: number;
   wires: Array<Pick<BombWire, "id" | "color" | "isCut">>;
   symbolModule: {
     availableSymbols: string[];
+    enteredSequence: string[];
+    precedenceOrder: string[];
+  };
+  memoryModule: {
+    cue: number;
+    step: number;
+    totalSteps: number;
+    availableDigits: string[];
     enteredSequence: string[];
   };
   wireAnchors: WireAnchor[];
@@ -336,6 +372,8 @@ export interface ManualSpread {
 }
 
 export interface BombRulebookPayload {
+  stageId: BombStageId;
+  stageTitle: string;
   spreads: ManualSpread[];
   activeSpreadId?: string;
   /** @deprecated fallback-only */
@@ -346,12 +384,18 @@ export interface BombRulebookPayload {
 }
 
 export interface BombSafetyTelemetryPayload {
+  stageId: BombStageId;
   currentRisk: number;
   stabilizeWindowSec: number;
+  strikeCarry: number;
+  stabilizeCharges: number;
   alarms: string[];
 }
 
 export interface BombCoordinationBoardPayload {
+  stageId: BombStageId;
+  currentDirective: string;
+  stageRail: Array<{ stageId: BombStageId; label: string; completed: boolean; active: boolean }>;
   checklist: Array<{ id: string; label: string; completed: boolean }>;
   recentMessages: Array<{ atEpochMs: number; message: string }>;
 }

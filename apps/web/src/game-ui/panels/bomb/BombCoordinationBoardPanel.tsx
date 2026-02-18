@@ -13,10 +13,13 @@ export function BombCoordinationBoardPanel({ payload }: BombCoordinationBoardPan
       <header className="panel-chip-row">
         <h3>Coordination Board</h3>
         <div className="chip-strip">
+          <span className="chip">{payload.stageId}</span>
           <span className="chip">loops {payload.recentMessages.length}</span>
           <span className="chip supporting">checkpoints {payload.checklist.length}</span>
         </div>
       </header>
+
+      <p className="panel-annotation">{payload.currentDirective}</p>
 
       <LayeredScene className="visual-stage coordination-stage cinematic-depth" depthPx={4} perspectivePx={760}>
         <ShadowCaster blurPx={18} opacity={0.35} offsetY={7} />
@@ -50,6 +53,17 @@ export function BombCoordinationBoardPanel({ payload }: BombCoordinationBoardPan
           ))}
         </div>
       </LayeredScene>
+
+      <div className="stage-rail" aria-label="Stage progression">
+        {payload.stageRail.map((stage) => (
+          <span
+            key={stage.stageId}
+            className={`stage-pill ${stage.completed ? "complete" : ""} ${stage.active ? "active" : ""}`}
+          >
+            {stage.label}
+          </span>
+        ))}
+      </div>
     </section>
   );
 }

@@ -77,6 +77,21 @@ export function GameHudShell({
     triggerCue(cue);
   }, [state.timeline.length, state.panelDeck.defaultOrder, state.panelDeck.panelsById, triggerCue]);
 
+  useEffect(() => {
+    const manualPanel = state.panelDeck.panelsById.manual_rulebook;
+    if (!manualPanel) {
+      return;
+    }
+    const payload = manualPanel.payload as BombRulebookPayload;
+    if (!payload.activeSpreadId) {
+      return;
+    }
+    const activeIndex = payload.spreads.findIndex((spread) => spread.id === payload.activeSpreadId);
+    if (activeIndex >= 0) {
+      setRulebookPage((prev) => (prev === activeIndex ? prev : activeIndex));
+    }
+  }, [state.panelDeck.panelsById.manual_rulebook]);
+
   const renderPanel = (panelId: string) => {
     const panel = state.panelDeck.panelsById[panelId as ScenePanelId];
     if (!panel) {

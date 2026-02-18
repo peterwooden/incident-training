@@ -16,8 +16,10 @@ export function BombSafetyTelemetryPanel({ payload, locked, onStabilize }: BombS
       <header className="panel-chip-row">
         <h3>Safety Telemetry</h3>
         <div className="chip-strip">
+          <span className="chip">{payload.stageId}</span>
           <span className="chip warning">risk {risk}%</span>
           <span className="chip">window {payload.stabilizeWindowSec}s</span>
+          <span className="chip supporting">stab {payload.stabilizeCharges}</span>
         </div>
       </header>
 

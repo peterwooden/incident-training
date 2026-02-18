@@ -5,9 +5,17 @@ import { BushfireMapPanel } from "../game-ui/panels/bushfire/BushfireMapPanel";
 
 const bombDeviceFixture: BombDeviceConsolePayload = {
   status: "armed",
+  stageId: "wires",
+  stageIndex: 0,
+  totalStages: 3,
+  stageTimerSec: 162,
+  stageStatus: "active",
+  completedStages: [],
+  stageObjective: "Cut only the critical wires in analyst-confirmed order.",
   timerSec: 302,
   strikes: 1,
   maxStrikes: 3,
+  stabilizeCharges: 2,
   wires: [
     { id: "wire_1", color: "red", isCut: false },
     { id: "wire_2", color: "blue", isCut: false },
@@ -18,6 +26,14 @@ const bombDeviceFixture: BombDeviceConsolePayload = {
   symbolModule: {
     availableSymbols: ["psi", "star", "lambda", "bolt", "eye"],
     enteredSequence: ["psi", "star"],
+    precedenceOrder: ["sun", "psi", "star", "lambda", "bolt", "eye", "key", "spiral"],
+  },
+  memoryModule: {
+    cue: 3,
+    step: 2,
+    totalSteps: 4,
+    availableDigits: ["1", "2", "3", "4"],
+    enteredSequence: ["2"],
   },
   wireAnchors: [
     { wireId: "wire_1", start: { x: 72, y: 48 }, end: { x: 508, y: 48 } },
@@ -109,6 +125,8 @@ const bombDeviceFixture: BombDeviceConsolePayload = {
 };
 
 const bombRulebookFixture: BombRulebookPayload = {
+  stageId: "wires",
+  stageTitle: "Wire Discipline",
   spreads: [
     {
       id: "fixture_spread_1",

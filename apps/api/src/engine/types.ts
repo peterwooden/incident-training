@@ -1,4 +1,6 @@
 import type {
+  BombScenarioState,
+  BombStageId,
   DebriefEvent,
   IncidentRole,
   PanelState,
@@ -17,6 +19,36 @@ export interface SeededRandom {
   pick<T>(input: T[]): T;
   pickMany<T>(input: T[], count: number): T[];
   getCursor: () => number;
+}
+
+export interface BombModuleContext {
+  now: number;
+  action: PlayerAction;
+}
+
+export interface BombModule {
+  id: BombStageId;
+  title: string;
+  timerSec: number;
+  objective: string;
+  init: (rng: SeededRandom, scenario: BombScenarioState) => BombScenarioState;
+  handleAction: (scenario: BombScenarioState, context: BombModuleContext) => {
+    scenario: BombScenarioState;
+    pressureDelta: number;
+    scoreDelta: number;
+    summary: string;
+    timelineMessage?: string;
+  };
+  onTick?: (scenario: BombScenarioState, now: number) => {
+    scenario: BombScenarioState;
+    pressureDelta: number;
+    scoreDelta: number;
+    summary?: string;
+    timelineMessage?: string;
+  };
+  isSolved: (scenario: BombScenarioState) => boolean;
+  manualTitle: string;
+  manualSections: (scenario: BombScenarioState) => string[];
 }
 
 export interface ModeMutation {

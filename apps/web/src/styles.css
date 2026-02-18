@@ -739,6 +739,12 @@ ul {
   flex-wrap: wrap;
 }
 
+.panel-annotation {
+  margin: 0.15rem 0 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .sequence-pip {
   width: 26px;
   height: 26px;
@@ -965,6 +971,36 @@ ul {
   gap: 0.38rem;
   overflow-x: auto;
   padding-bottom: 0.15rem;
+}
+
+.stage-rail {
+  margin-top: 0.42rem;
+  display: flex;
+  gap: 0.34rem;
+  flex-wrap: wrap;
+}
+
+.stage-pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.16rem 0.5rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: #0f1728;
+}
+
+.stage-pill.complete {
+  border-color: #72dca3aa;
+  color: #a9eec8;
+  background: #0e2220;
+}
+
+.stage-pill.active {
+  border-color: #ffc57d;
+  color: #ffe0b3;
+  background: #272015;
 }
 
 .trail-chip {

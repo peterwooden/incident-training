@@ -46,11 +46,14 @@ async function run() {
     if (!createResp.ok) throw new Error(`create room failed: ${createResp.status}`);
     const created = await createResp.json();
     const roomCode = created.roomCode;
+    if (!created.joinUrl?.endsWith(`/join/${roomCode}`)) {
+      throw new Error("expected joinUrl to use /join/:roomCode");
+    }
 
     const joinResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/join`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Alice", preferredRole: "Safety Officer" }),
+      body: JSON.stringify({ name: "Alice", preferredRole: "Device Specialist" }),
     });
     if (!joinResp.ok) throw new Error(`join room failed: ${joinResp.status}`);
     const joined = await joinResp.json();
@@ -77,7 +80,7 @@ async function run() {
       body: JSON.stringify({
         playerId: joined.playerId,
         actionType: "bomb_stabilize_panel",
-        panelId: "safety_telemetry",
+        panelId: "device_console",
       }),
     });
     if (!actionResp.ok) throw new Error(`action failed: ${actionResp.status}`);
@@ -91,6 +94,10 @@ async function run() {
     }
     if (!statePayload.state.panelDeck) {
       throw new Error("expected panel deck in room view");
+    }
+    const devicePanel = statePayload.state.panelDeck.panelsById.device_console;
+    if (!devicePanel?.payload?.stageId) {
+      throw new Error("expected staged bomb payload in device panel");
     }
 
     console.log("E2E passed");

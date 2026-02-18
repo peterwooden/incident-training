@@ -43,8 +43,8 @@ export function BombDeviceConsolePanel({
   const holdStartRef = useRef<number | null>(null);
 
   const risk = useMemo(
-    () => Math.min(100, Math.round((payload.strikes / payload.maxStrikes) * 70 + (540 - payload.timerSec) / 10)),
-    [payload.maxStrikes, payload.strikes, payload.timerSec],
+    () => Math.min(100, Math.round((payload.strikes / payload.maxStrikes) * 68 + (560 - payload.timerSec) / 11 + (190 - payload.stageTimerSec) / 8)),
+    [payload.maxStrikes, payload.stageTimerSec, payload.strikes, payload.timerSec],
   );
 
   const { pulse, wave } = useAmbientMotionClock({
@@ -94,6 +94,9 @@ export function BombDeviceConsolePanel({
   };
 
   const isActionEnabled = !locked && payload.status === "armed";
+  const enteredSequence = payload.stageId === "memory"
+    ? payload.memoryModule.enteredSequence
+    : payload.symbolModule.enteredSequence;
 
   const onRegionActivate = (region: InteractionRegion) => {
     if (!region.enabled || !isActionEnabled) {
@@ -121,11 +124,16 @@ export function BombDeviceConsolePanel({
       <header className="panel-chip-row">
         <h3>Device Console</h3>
         <div className="chip-strip">
-          <span className="chip warning">{payload.timerSec}s</span>
+          <span className="chip warning">S{payload.stageIndex + 1} {payload.stageTimerSec}s</span>
+          <span className="chip">{payload.timerSec}s</span>
           <span className="chip">{payload.strikes}/{payload.maxStrikes}</span>
           <span className={`chip ${payload.status === "armed" ? "good" : "danger"}`}>{payload.status}</span>
         </div>
       </header>
+
+      <p className="panel-annotation">
+        {payload.stageObjective}
+      </p>
 
       <LayeredScene className="visual-stage bomb-stage cinematic-depth" depthPx={hoverDepthPx} perspectivePx={920}>
         <div className="bomb-stage-root" {...bind}>
@@ -444,7 +452,7 @@ export function BombDeviceConsolePanel({
       </LayeredScene>
 
       <div className="sequence-pips" aria-label="Entered sequence">
-        {payload.symbolModule.enteredSequence.map((symbol, idx) => (
+        {enteredSequence.map((symbol, idx) => (
           <span key={`${symbol}-${idx}`} className="sequence-pip">{symbol}</span>
         ))}
       </div>
