@@ -85,6 +85,18 @@ async function run() {
     });
     if (!actionResp.ok) throw new Error(`action failed: ${actionResp.status}`);
 
+    const gmFsmResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        playerId: created.gmPlayerId,
+        actionType: "gm_fsm_transition",
+        panelId: "fsm_editor",
+        payload: { transitionId: "bomb-stage:symbols" },
+      }),
+    });
+    if (!gmFsmResp.ok) throw new Error(`gm fsm action failed: ${gmFsmResp.status}`);
+
     const stateResp = await fetch(
       `${BASE_URL}/api/rooms/${encodeURIComponent(roomCode)}/state?playerId=${encodeURIComponent(joined.playerId)}`,
     );
@@ -98,6 +110,9 @@ async function run() {
     const devicePanel = statePayload.state.panelDeck.panelsById.device_console;
     if (!devicePanel?.payload?.stageId) {
       throw new Error("expected staged bomb payload in device panel");
+    }
+    if (devicePanel.payload.stageId !== "symbols") {
+      throw new Error("expected GM FSM transition to switch to symbols stage");
     }
 
     console.log("E2E passed");

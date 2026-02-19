@@ -53,6 +53,7 @@ export interface DebriefView {
 
 export type PlayerActionType =
   | "assign_role"
+  | "gm_fsm_transition"
   | "bomb_cut_wire"
   | "bomb_press_symbol"
   | "bomb_stabilize_panel"
@@ -158,6 +159,7 @@ export type ScenePanelId =
   | "public_info_console"
   | "incident_command_console"
   | "gm_orchestrator"
+  | "fsm_editor"
   | "debrief_replay";
 
 export type ScenePanelKind = "shared" | "role-scoped" | "gm-only";
@@ -545,6 +547,31 @@ export interface GmOrchestratorPayload {
   selectionContext?: { selectedPlayerId?: string; selectedPanelId?: ScenePanelId };
 }
 
+export interface FsmNodeView {
+  id: string;
+  label: string;
+  kind: "room-status" | "scenario-status" | "stage" | "metric-band";
+  active: boolean;
+  x: number;
+  y: number;
+}
+
+export interface FsmTransitionView {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  label: string;
+  actionPayload: string;
+}
+
+export interface FsmEditorPayload {
+  mode: GameMode;
+  currentNodeId: string;
+  nodes: FsmNodeView[];
+  transitions: FsmTransitionView[];
+  hints: string[];
+}
+
 export interface DebriefReplayPayload {
   metrics: DebriefMetrics;
   events: DebriefEvent[];
@@ -562,10 +589,11 @@ export interface ScenePanelPayloadMap {
   public_info_console: PublicInfoPayload;
   incident_command_console: IncidentCommandPayload;
   gm_orchestrator: GmOrchestratorPayload;
+  fsm_editor: FsmEditorPayload;
   debrief_replay: DebriefReplayPayload;
 }
 
-export type LiveGameplayPanelId = Exclude<ScenePanelId, "gm_orchestrator" | "debrief_replay">;
+export type LiveGameplayPanelId = Exclude<ScenePanelId, "gm_orchestrator" | "fsm_editor" | "debrief_replay">;
 export type OverlayTextLevelForPanel<K extends ScenePanelId> = K extends LiveGameplayPanelId
   ? Exclude<OverlayTextLevel, "dense">
   : OverlayTextLevel;

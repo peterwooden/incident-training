@@ -171,6 +171,7 @@ const PANEL_DEFINITIONS: ScenePanelAccessRule[] = [
   { id: "public_info_console", kind: "role-scoped", defaultRoles: ["Public Information Officer"] },
   { id: "incident_command_console", kind: "role-scoped", defaultRoles: ["Incident Controller"] },
   { id: "gm_orchestrator", kind: "gm-only", defaultRoles: [] },
+  { id: "fsm_editor", kind: "gm-only", defaultRoles: [] },
   { id: "debrief_replay", kind: "gm-only", defaultRoles: [] },
 ];
 
@@ -524,6 +525,48 @@ function toToolDropZones(cells: BushfireCell[]) {
     .flat();
 }
 
+function buildBushfireFsmPayload(state: RoomState) {
+  const scenario = state.scenario;
+  if (scenario.type !== "bushfire-command") {
+    throw new Error("invalid scenario");
+  }
+
+  const containmentBand = scenario.containment >= 75 ? "stable" : scenario.containment >= 45 ? "contested" : "critical";
+  const anxietyBand = scenario.publicAnxiety >= 70 ? "high" : scenario.publicAnxiety >= 40 ? "elevated" : "controlled";
+
+  const nodes = [
+    { id: "room:lobby", label: "Lobby", kind: "room-status" as const, active: state.status === "lobby", x: 0.12, y: 0.18 },
+    { id: "room:running", label: "Running", kind: "room-status" as const, active: state.status === "running", x: 0.36, y: 0.18 },
+    { id: "room:resolved", label: "Resolved", kind: "room-status" as const, active: state.status === "resolved", x: 0.6, y: 0.18 },
+    { id: "room:failed", label: "Failed", kind: "room-status" as const, active: state.status === "failed", x: 0.84, y: 0.18 },
+    { id: "band:stable", label: "Containment Stable", kind: "metric-band" as const, active: containmentBand === "stable", x: 0.22, y: 0.62 },
+    { id: "band:contested", label: "Containment Contested", kind: "metric-band" as const, active: containmentBand === "contested", x: 0.5, y: 0.62 },
+    { id: "band:critical", label: "Containment Critical", kind: "metric-band" as const, active: containmentBand === "critical", x: 0.78, y: 0.62 },
+  ];
+
+  const transitions = [
+    { id: "bf_room_running", fromNodeId: "room:lobby", toNodeId: "room:running", label: "Force Running", actionPayload: "room-status:running" },
+    { id: "bf_room_resolved", fromNodeId: "room:running", toNodeId: "room:resolved", label: "Resolve", actionPayload: "room-status:resolved" },
+    { id: "bf_room_failed", fromNodeId: "room:running", toNodeId: "room:failed", label: "Fail", actionPayload: "room-status:failed" },
+    { id: "bf_band_stable", fromNodeId: "room:running", toNodeId: "band:stable", label: "Set Stable", actionPayload: "bushfire-band:stable" },
+    { id: "bf_band_contested", fromNodeId: "room:running", toNodeId: "band:contested", label: "Set Contested", actionPayload: "bushfire-band:contested" },
+    { id: "bf_band_critical", fromNodeId: "room:running", toNodeId: "band:critical", label: "Set Critical", actionPayload: "bushfire-band:critical" },
+  ];
+
+  const currentNodeId = nodes.find((node) => node.active)?.id ?? "room:running";
+  return {
+    mode: "bushfire-command" as const,
+    currentNodeId,
+    nodes,
+    transitions,
+    hints: [
+      `Room status: ${state.status}`,
+      `Containment: ${scenario.containment}% (${containmentBand})`,
+      `Public anxiety: ${scenario.publicAnxiety}% (${anxietyBand})`,
+    ],
+  };
+}
+
 export class BushfireCommandMode implements GameModeEngine {
   initObjectives(_rng: SeededRandom): RoomState["objectives"] {
     return [
@@ -583,6 +626,7 @@ export class BushfireCommandMode implements GameModeEngine {
       bushfire_set_roadblock: "police_ops_console",
       bushfire_issue_public_update: "public_info_console",
       assign_role: "gm_orchestrator",
+      gm_fsm_transition: "fsm_editor",
     };
     return map[actionType];
   }
@@ -751,7 +795,7 @@ export class BushfireCommandMode implements GameModeEngine {
     const granted = viewer ? args.panelState.accessGrants[viewer.id] ?? this.getDefaultAccessTemplate(viewer.role) : [];
     const availablePanelIds = isGm
       ? PANEL_DEFINITIONS.map((panel) => panel.id)
-      : granted.filter((panelId) => panelId !== "gm_orchestrator" && panelId !== "debrief_replay");
+      : granted.filter((panelId) => panelId !== "gm_orchestrator" && panelId !== "fsm_editor" && panelId !== "debrief_replay");
 
     const panelMap: PanelDeckView["panelsById"] = {};
     const withLock = (id: ScenePanelId) => args.panelState.panelLocks[id] ?? { locked: false };
@@ -973,6 +1017,24 @@ export class BushfireCommandMode implements GameModeEngine {
           ],
           selectionContext: {},
         },
+      };
+
+      panelMap.fsm_editor = {
+        id: "fsm_editor",
+        kind: "gm-only",
+        title: "FSM Editor",
+        subtitle: "Visualize and edit live state machine",
+        priority: 94,
+        visualPriority: 70,
+        renderMode: "svg",
+        interactionMode: "drawer-control",
+        overlayTextLevel: "dense",
+        fxProfile: "cinematic",
+        ambientLoopMs: 3000,
+        hoverDepthPx: 3,
+        materialPreset: "gm-deck",
+        locked: withLock("fsm_editor"),
+        payload: buildBushfireFsmPayload(args.state),
       };
 
       panelMap.debrief_replay = {

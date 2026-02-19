@@ -7,6 +7,7 @@ import type {
   BushfireMapPayload,
   DebriefReplayPayload,
   FireOpsPayload,
+  FsmEditorPayload,
   GmOrchestratorPayload,
   IncidentCommandPayload,
   IncidentRole,
@@ -29,6 +30,7 @@ import { IncidentCommandPanel } from "../panels/bushfire/IncidentCommandPanel";
 import { PoliceOpsPanel } from "../panels/bushfire/PoliceOpsPanel";
 import { PublicInfoPanel } from "../panels/bushfire/PublicInfoPanel";
 import { DebriefReplayPanel } from "../gm/DebriefReplayPanel";
+import { GmFsmPanel } from "../gm/GmFsmPanel";
 import { GmOrchestratorPanel } from "../gm/GmOrchestratorPanel";
 import { PanelDashboard } from "./PanelDashboard";
 
@@ -247,6 +249,15 @@ export function GameHudShell({
           />
         );
       }
+      case "fsm_editor":
+        return (
+          <GmFsmPanel
+            payload={panel.payload as FsmEditorPayload}
+            locked={panel.locked.locked}
+            onTransition={(transitionId) =>
+              onAction("gm_fsm_transition", "fsm_editor", { transitionId })}
+          />
+        );
       case "debrief_replay":
         return (
           <DebriefReplayPanel

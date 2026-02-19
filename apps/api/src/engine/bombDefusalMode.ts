@@ -30,6 +30,7 @@ const PANEL_DEFINITIONS: ScenePanelAccessRule[] = [
   { id: "safety_telemetry", kind: "role-scoped", defaultRoles: ["Safety Officer"] },
   { id: "coordination_board", kind: "role-scoped", defaultRoles: ["Lead Coordinator"] },
   { id: "gm_orchestrator", kind: "gm-only", defaultRoles: [] },
+  { id: "fsm_editor", kind: "gm-only", defaultRoles: [] },
   { id: "debrief_replay", kind: "gm-only", defaultRoles: [] },
 ];
 
@@ -659,6 +660,51 @@ function stageOrderRail(scenario: BombScenarioState) {
   }));
 }
 
+function buildBombFsmPayload(state: RoomState) {
+  const scenario = state.scenario;
+  if (scenario.type !== "bomb-defusal") {
+    throw new Error("invalid scenario");
+  }
+
+  const nodes = [
+    { id: "room:lobby", label: "Lobby", kind: "room-status" as const, active: state.status === "lobby", x: 0.1, y: 0.14 },
+    { id: "room:running", label: "Running", kind: "room-status" as const, active: state.status === "running", x: 0.32, y: 0.14 },
+    { id: "room:resolved", label: "Resolved", kind: "room-status" as const, active: state.status === "resolved", x: 0.56, y: 0.14 },
+    { id: "room:failed", label: "Failed", kind: "room-status" as const, active: state.status === "failed", x: 0.78, y: 0.14 },
+    { id: "bomb:armed", label: "Bomb Armed", kind: "scenario-status" as const, active: scenario.status === "armed", x: 0.2, y: 0.42 },
+    { id: "bomb:defused", label: "Bomb Defused", kind: "scenario-status" as const, active: scenario.status === "defused", x: 0.48, y: 0.42 },
+    { id: "bomb:exploded", label: "Bomb Exploded", kind: "scenario-status" as const, active: scenario.status === "exploded", x: 0.76, y: 0.42 },
+    { id: "stage:wires", label: "Stage A Wires", kind: "stage" as const, active: scenario.stageId === "wires", x: 0.18, y: 0.76 },
+    { id: "stage:symbols", label: "Stage B Symbols", kind: "stage" as const, active: scenario.stageId === "symbols", x: 0.46, y: 0.76 },
+    { id: "stage:memory", label: "Stage C Memory", kind: "stage" as const, active: scenario.stageId === "memory", x: 0.74, y: 0.76 },
+  ];
+
+  const transitions = [
+    { id: "t_room_running", fromNodeId: "room:lobby", toNodeId: "room:running", label: "Force Running", actionPayload: "room-status:running" },
+    { id: "t_room_resolved", fromNodeId: "room:running", toNodeId: "room:resolved", label: "Resolve", actionPayload: "room-status:resolved" },
+    { id: "t_room_failed", fromNodeId: "room:running", toNodeId: "room:failed", label: "Fail", actionPayload: "room-status:failed" },
+    { id: "t_bomb_armed", fromNodeId: "bomb:defused", toNodeId: "bomb:armed", label: "Re-arm", actionPayload: "bomb-status:armed" },
+    { id: "t_bomb_defused", fromNodeId: "bomb:armed", toNodeId: "bomb:defused", label: "Mark Defused", actionPayload: "bomb-status:defused" },
+    { id: "t_bomb_exploded", fromNodeId: "bomb:armed", toNodeId: "bomb:exploded", label: "Explode", actionPayload: "bomb-status:exploded" },
+    { id: "t_stage_wires", fromNodeId: "bomb:armed", toNodeId: "stage:wires", label: "Go Stage A", actionPayload: "bomb-stage:wires" },
+    { id: "t_stage_symbols", fromNodeId: "bomb:armed", toNodeId: "stage:symbols", label: "Go Stage B", actionPayload: "bomb-stage:symbols" },
+    { id: "t_stage_memory", fromNodeId: "bomb:armed", toNodeId: "stage:memory", label: "Go Stage C", actionPayload: "bomb-stage:memory" },
+  ];
+
+  const currentNodeId = nodes.find((node) => node.active)?.id ?? "room:running";
+  return {
+    mode: "bomb-defusal" as const,
+    currentNodeId,
+    nodes,
+    transitions,
+    hints: [
+      `Room status: ${state.status}`,
+      `Bomb status: ${scenario.status}`,
+      `Active module: ${stageLabel(scenario.stageId)} (${scenario.stageStatus})`,
+    ],
+  };
+}
+
 export class BombDefusalMode implements GameModeEngine {
   initObjectives(_rng: SeededRandom): RoomState["objectives"] {
     return [
@@ -704,6 +750,7 @@ export class BombDefusalMode implements GameModeEngine {
       bomb_cut_wire: "device_console",
       bomb_press_symbol: "device_console",
       assign_role: "gm_orchestrator",
+      gm_fsm_transition: "fsm_editor",
     };
     return map[actionType];
   }
@@ -887,7 +934,7 @@ export class BombDefusalMode implements GameModeEngine {
     const granted = viewer ? args.panelState.accessGrants[viewer.id] ?? this.getDefaultAccessTemplate(viewer.role) : [];
     const availablePanelIds = isGm
       ? PANEL_DEFINITIONS.map((panel) => panel.id)
-      : granted.filter((panelId) => panelId !== "gm_orchestrator" && panelId !== "debrief_replay");
+      : granted.filter((panelId) => panelId !== "gm_orchestrator" && panelId !== "fsm_editor" && panelId !== "debrief_replay");
 
     const panelMap: PanelDeckView["panelsById"] = {};
 
@@ -1191,6 +1238,24 @@ export class BombDefusalMode implements GameModeEngine {
           ],
           selectionContext: {},
         },
+      };
+
+      panelMap.fsm_editor = {
+        id: "fsm_editor",
+        kind: "gm-only",
+        title: "FSM Editor",
+        subtitle: "Visualize and edit live state machine",
+        priority: 94,
+        visualPriority: 70,
+        renderMode: "svg",
+        interactionMode: "drawer-control",
+        overlayTextLevel: "dense",
+        fxProfile: "cinematic",
+        ambientLoopMs: 3000,
+        hoverDepthPx: 3,
+        materialPreset: "gm-deck",
+        locked: withLock("fsm_editor"),
+        payload: buildBombFsmPayload(args.state),
       };
 
       panelMap.debrief_replay = {

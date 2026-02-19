@@ -344,7 +344,18 @@ export class GameRoomDurableObject extends DurableObject {
     };
 
     const now = Date.now();
-    this.applyMutation(engine.onAction(this.roomState, action, now), now);
+    if (action.type === "gm_fsm_transition") {
+      if (!player.isGameMaster) {
+        return json({ error: "Only game master can edit FSM state" }, 403);
+      }
+      const transitionId = String(action.payload?.transitionId ?? "");
+      const applied = this.applyGmFsmTransition(transitionId, now);
+      if (!applied) {
+        return json({ error: "Invalid FSM transition payload", transitionId }, 409);
+      }
+    } else {
+      this.applyMutation(engine.onAction(this.roomState, action, now), now);
+    }
 
     this.addDebriefEvent({
       type: "action",
@@ -381,6 +392,91 @@ export class GameRoomDurableObject extends DurableObject {
     await this.broadcastSnapshot();
 
     return json({ state: this.toRoomView(body.playerId) });
+  }
+
+  private applyGmFsmTransition(transitionId: string, now: number): boolean {
+    if (!this.roomState || !transitionId.includes(":")) {
+      return false;
+    }
+
+    const [kind, targetRaw] = transitionId.split(":");
+    const target = targetRaw?.trim();
+    if (!target) {
+      return false;
+    }
+
+    if (kind === "room-status") {
+      if (target !== "lobby" && target !== "running" && target !== "resolved" && target !== "failed") {
+        return false;
+      }
+      this.roomState.status = target;
+      if (target === "running" && !this.roomState.startedAtEpochMs) {
+        this.roomState.startedAtEpochMs = now;
+      }
+      if (target === "resolved" || target === "failed") {
+        this.roomState.endedAtEpochMs = now;
+      } else {
+        this.roomState.endedAtEpochMs = undefined;
+      }
+      this.roomState.timeline.push(newTimelineEvent("system", `GM FSM set room status -> ${target}`, now));
+      return true;
+    }
+
+    if (this.roomState.scenario.type === "bomb-defusal") {
+      const scenario = this.roomState.scenario;
+      if (kind === "bomb-status") {
+        if (target !== "armed" && target !== "defused" && target !== "exploded") {
+          return false;
+        }
+        scenario.status = target;
+        if (target === "defused") {
+          this.roomState.status = "resolved";
+          this.roomState.endedAtEpochMs = now;
+        }
+        if (target === "exploded") {
+          this.roomState.status = "failed";
+          this.roomState.endedAtEpochMs = now;
+        }
+        this.roomState.timeline.push(newTimelineEvent("system", `GM FSM set bomb status -> ${target}`, now));
+        return true;
+      }
+      if (kind === "bomb-stage") {
+        if (target !== "wires" && target !== "symbols" && target !== "memory") {
+          return false;
+        }
+        const index = scenario.moduleQueue.findIndex((stageId) => stageId === target);
+        if (index < 0) {
+          return false;
+        }
+        scenario.stageId = target;
+        scenario.stageIndex = index;
+        scenario.stageStatus = "active";
+        scenario.intermissionUntilEpochMs = undefined;
+        scenario.stageTimerSec = target === "wires" ? 190 : target === "symbols" ? 170 : 150;
+        this.roomState.timeline.push(newTimelineEvent("system", `GM FSM switched bomb stage -> ${target}`, now));
+        return true;
+      }
+    }
+
+    if (this.roomState.scenario.type === "bushfire-command" && kind === "bushfire-band") {
+      const scenario = this.roomState.scenario;
+      if (target === "stable") {
+        scenario.containment = 82;
+        scenario.publicAnxiety = Math.min(scenario.publicAnxiety, 30);
+      } else if (target === "contested") {
+        scenario.containment = 56;
+        scenario.publicAnxiety = 48;
+      } else if (target === "critical") {
+        scenario.containment = 28;
+        scenario.publicAnxiety = 78;
+      } else {
+        return false;
+      }
+      this.roomState.timeline.push(newTimelineEvent("system", `GM FSM set bushfire band -> ${target}`, now));
+      return true;
+    }
+
+    return false;
   }
 
   private async handleAssignRole(request: Request): Promise<Response> {
