@@ -2477,3 +2477,22 @@ ul {
   opacity: 0.24;
   mix-blend-mode: screen;
 }
+
+.widget-slot {
+  position: relative;
+}
+
+.widget-audience-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 4;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(121, 166, 219, 0.48);
+  background: rgba(6, 18, 38, 0.86);
+  color: #d6e6ff;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}

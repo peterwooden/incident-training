@@ -23,7 +23,7 @@ export function PublicInfoPanel({
   onPublish,
   locked,
 }: PublicInfoPanelProps) {
-  const anxiety = Math.max(0, Math.min(100, payload.anxiety));
+  const anxiety = Math.max(0, Math.min(100, Math.round(payload.anxiety)));
   const { pulse } = useAmbientMotionClock({ loopMs: 1900, paused: false });
 
   return (

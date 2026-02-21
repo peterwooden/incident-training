@@ -75,6 +75,8 @@ export function BushfireMapPanel({
   onCreateFirebreak,
   onSetRoadblock,
 }: BushfireMapPanelProps) {
+  const containment = Math.round(payload.containment);
+  const anxiety = Math.round(payload.anxiety);
   const [activeTool, setActiveTool] = useState<BushfireToolType | undefined>(undefined);
   const [dragPoint, setDragPoint] = useState<Point2D | undefined>(undefined);
   const [focusedZoneId, setFocusedZoneId] = useState<string | undefined>(undefined);
@@ -95,12 +97,12 @@ export function BushfireMapPanel({
         fireContours: payload.fireFrontContours,
         canopyPulse: pulse,
       });
-      drawSmoke(ctx, width, height, now, 100 - payload.containment + payload.anxiety * 0.4, {
+      drawSmoke(ctx, width, height, now, 100 - containment + anxiety * 0.4, {
         fxProfile,
         windField: payload.windField,
       });
     },
-    [fxProfile, payload.anxiety, payload.cells, payload.containment, payload.fireFrontContours, payload.windField, pulse],
+    [anxiety, containment, fxProfile, payload.cells, payload.fireFrontContours, payload.windField, pulse],
   );
 
   const actionForTool = useMemo(
@@ -196,8 +198,8 @@ export function BushfireMapPanel({
       <header className="widget-chip-row">
         <h3>The Valley Firefront</h3>
         <div className="chip-strip">
-          <span className="chip warning">contain {payload.containment}%</span>
-          <span className="chip">anxiety {payload.anxiety}%</span>
+          <span className="chip warning">contain {containment}%</span>
+          <span className="chip">anxiety {anxiety}%</span>
           <span className="chip supporting">wind {payload.windDirection}/{payload.windStrength}</span>
         </div>
       </header>

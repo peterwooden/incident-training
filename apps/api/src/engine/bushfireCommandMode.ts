@@ -1176,8 +1176,8 @@ export class BushfireCommandMode implements GameModeEngine {
       payload: {
         windDirection: scenario.windDirection,
         windStrength: scenario.windStrength,
-        containment: scenario.containment,
-        anxiety: scenario.publicAnxiety,
+        containment: Math.round(scenario.containment),
+        anxiety: Math.round(scenario.publicAnxiety),
         cells: scenario.cells,
         zonePolygons: toZonePolygons(scenario.cells),
         assetSlots: [
@@ -1245,7 +1245,7 @@ export class BushfireCommandMode implements GameModeEngine {
       locked: withLock("fire_ops_console"),
       payload: {
         waterBombsAvailable: scenario.waterBombsAvailable,
-        waterRemainingLiters: scenario.waterRemainingLiters,
+        waterRemainingLiters: Math.round(scenario.waterRemainingLiters),
         phaseId: scenario.phaseId,
         firefrontStageImageId: `firefront-${scenario.firefrontVisualStage}`,
         firefrontOverlayImageId: `firefront-overlay-${scenario.phaseId}`,
@@ -1319,7 +1319,7 @@ export class BushfireCommandMode implements GameModeEngine {
       locked: withLock("public_info_console"),
       payload: {
         advisories: scenario.publicAdvisories,
-        anxiety: scenario.publicAnxiety,
+        anxiety: Math.round(scenario.publicAnxiety),
         cadenceHint: scenario.rumorPressure > 55 ? "Increase cadence and rumor debunks now." : "Maintain calm regular updates.",
         listenerFeed: scenario.listenerReactions.slice(-8),
         canPublish: !withLock("public_info_console").locked,
@@ -1345,8 +1345,8 @@ export class BushfireCommandMode implements GameModeEngine {
         phaseId: scenario.phaseId,
         windDirection: scenario.windDirection,
         windStrength: scenario.windStrength,
-        windKph: scenario.windKph,
-        forecastConfidence: scenario.forecastConfidence,
+        windKph: Math.round(scenario.windKph),
+        forecastConfidence: Math.round(scenario.forecastConfidence),
         conditionIcon: scenario.weatherState.conditionIcon,
         severityEmoji: scenario.weatherState.severityEmoji,
         gustBand: scenario.weatherState.gustBand,

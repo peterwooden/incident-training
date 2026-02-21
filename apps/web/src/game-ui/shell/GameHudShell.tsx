@@ -308,6 +308,35 @@ export function GameHudShell({
     }
   };
 
+  const visibilityLabelForWidget = (widgetId: string): string | undefined => {
+    const widget = state.widgetDeck.widgetsById[widgetId as WidgetId];
+    if (!widget) {
+      return undefined;
+    }
+    if (widget.kind === "shared") {
+      return "Everyone";
+    }
+    if (widget.kind === "gm-only") {
+      return "Only you";
+    }
+    if (!isGm) {
+      return "Only you";
+    }
+    const audienceByWidget: Partial<Record<WidgetId, string>> = {
+      device_console: "Device Specialist",
+      manual_rulebook: "Manual Analyst",
+      safety_telemetry: "Safety Officer",
+      coordination_board: "Lead Coordinator",
+      fire_ops_console: "Firefighter",
+      police_ops_console: "Police Officer",
+      public_info_console: "Radio Host",
+      weather_ops_console: "Meteorologist",
+      incident_command_console: "Mayor",
+      role_briefing: "Single role",
+    };
+    return audienceByWidget[widget.id] ?? "Selected players";
+  };
+
   return (
     <main className="game-shell">
       <section className="game-topbar">
@@ -331,7 +360,11 @@ export function GameHudShell({
         </div>
       </section>
 
-      <WidgetDashboard widgetIds={state.widgetDeck.defaultOrder} renderWidget={renderWidget} />
+      <WidgetDashboard
+        widgetIds={state.widgetDeck.defaultOrder}
+        renderWidget={renderWidget}
+        visibilityLabelForWidget={visibilityLabelForWidget}
+      />
 
       <section className="timeline-strip">
         <h3>Live Feed</h3>

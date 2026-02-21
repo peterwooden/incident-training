@@ -15,6 +15,7 @@ const FORECAST_TYPES = [
 
 export function WeatherOpsPanel({ payload, locked, onIssueForecast }: WeatherOpsPanelProps) {
   const confidence = Math.max(0, Math.min(100, Math.round(payload.forecastConfidence)));
+  const windKph = Math.round(payload.windKph);
   const { pulse } = useAmbientMotionClock({ loopMs: 2100, paused: false });
   const headingMap: Record<WeatherOpsPayload["windDirection"], number> = {
     N: 0,
@@ -30,7 +31,7 @@ export function WeatherOpsPanel({ payload, locked, onIssueForecast }: WeatherOps
         <h3>Weather Ops</h3>
         <div className="chip-strip">
           <span className="chip warning">{payload.windDirection}/{payload.windStrength}</span>
-          <span className="chip">wind {payload.windKph} km/h</span>
+          <span className="chip">wind {windKph} km/h</span>
         </div>
       </header>
 
@@ -47,7 +48,7 @@ export function WeatherOpsPanel({ payload, locked, onIssueForecast }: WeatherOps
             <line x1={86} y1={60} x2={86} y2={128} className="weather-arrow-tail" />
           </g>
           <text x={86} y={148} textAnchor="middle" className="weather-readout">
-            {payload.windDirection} {payload.windKph}
+            {payload.windDirection} {windKph}
           </text>
           <text x={86} y={34} textAnchor="middle" className="weather-readout">
             {payload.severityEmoji}

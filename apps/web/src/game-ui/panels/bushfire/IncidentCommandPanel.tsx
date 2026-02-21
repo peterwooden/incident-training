@@ -6,7 +6,7 @@ interface IncidentCommandPanelProps {
 }
 
 export function IncidentCommandPanel({ payload }: IncidentCommandPanelProps) {
-  const containment = Math.max(0, Math.min(100, payload.containment));
+  const containment = Math.max(0, Math.min(100, Math.round(payload.containment)));
   const { pulse } = useAmbientMotionClock({ loopMs: 2200, paused: false });
 
   return (
