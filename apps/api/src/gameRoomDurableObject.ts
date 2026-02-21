@@ -31,6 +31,28 @@ import { createSseResponse, sendSseComment, sendSseEvent } from "./infra/sse";
 const ROOM_STORAGE_KEY = "room-state";
 const ALARM_INTERVAL_MS = 15_000;
 const SUPPORTED_MODES = new Set(["bomb-defusal", "bushfire-command"]);
+const BUSHFIRE_TOTAL_DURATION_SEC = 13 * 60;
+const BUSHFIRE_PHASE_ORDER = [
+  "phase_1_monitor",
+  "phase_2_escalation",
+  "phase_3_crisis",
+  "phase_4_catastrophe",
+  "terminal_failed",
+] as const;
+const BUSHFIRE_PHASE_INDEX: Record<(typeof BUSHFIRE_PHASE_ORDER)[number], number> = {
+  phase_1_monitor: 0,
+  phase_2_escalation: 1,
+  phase_3_crisis: 2,
+  phase_4_catastrophe: 3,
+  terminal_failed: 4,
+};
+const BUSHFIRE_PHASE_START_SEC: Record<(typeof BUSHFIRE_PHASE_ORDER)[number], number> = {
+  phase_1_monitor: 0,
+  phase_2_escalation: 180,
+  phase_3_crisis: 420,
+  phase_4_catastrophe: 660,
+  terminal_failed: 780,
+};
 
 interface ClientConnection {
   connectionId: string;
@@ -353,6 +375,8 @@ export class GameRoomDurableObject extends DurableObject {
       if (!applied) {
         return json({ error: "Invalid FSM transition payload", transitionId }, 409);
       }
+    } else if (action.type === "gm_release_prompt" && !player.isGameMaster) {
+      return json({ error: "Only game master can release prompts" }, 403);
     } else {
       this.applyMutation(engine.onAction(this.roomState, action, now), now);
     }
@@ -458,22 +482,48 @@ export class GameRoomDurableObject extends DurableObject {
       }
     }
 
-    if (this.roomState.scenario.type === "bushfire-command" && kind === "bushfire-band") {
+    if (this.roomState.scenario.type === "bushfire-command") {
       const scenario = this.roomState.scenario;
-      if (target === "stable") {
-        scenario.containment = 82;
-        scenario.publicAnxiety = Math.min(scenario.publicAnxiety, 30);
-      } else if (target === "contested") {
-        scenario.containment = 56;
-        scenario.publicAnxiety = 48;
-      } else if (target === "critical") {
-        scenario.containment = 28;
-        scenario.publicAnxiety = 78;
-      } else {
-        return false;
+      const setPhase = (phaseId: (typeof BUSHFIRE_PHASE_ORDER)[number]): void => {
+        scenario.phaseId = phaseId;
+        scenario.phaseIndex = BUSHFIRE_PHASE_INDEX[phaseId];
+        scenario.phaseStartedAtEpochMs = now;
+        scenario.elapsedSec = BUSHFIRE_PHASE_START_SEC[phaseId];
+        scenario.timerSec = Math.max(0, BUSHFIRE_TOTAL_DURATION_SEC - scenario.elapsedSec);
+      };
+
+      if (kind === "bushfire-phase") {
+        if (
+          target !== "phase_1_monitor" &&
+          target !== "phase_2_escalation" &&
+          target !== "phase_3_crisis" &&
+          target !== "phase_4_catastrophe"
+        ) {
+          return false;
+        }
+        setPhase(target);
+        if (this.roomState.status === "failed") {
+          this.roomState.status = "running";
+          this.roomState.endedAtEpochMs = undefined;
+        }
+        this.roomState.timeline.push(newTimelineEvent("system", `GM FSM set bushfire phase -> ${target}`, now));
+        return true;
       }
-      this.roomState.timeline.push(newTimelineEvent("system", `GM FSM set bushfire band -> ${target}`, now));
-      return true;
+
+      if (kind === "bushfire-state") {
+        if (target !== "terminal_failed") {
+          return false;
+        }
+        setPhase("terminal_failed");
+        scenario.distanceToTownMeters = 0;
+        scenario.smokeDensity = 100;
+        scenario.containment = Math.min(scenario.containment, 8);
+        scenario.publicAnxiety = Math.max(scenario.publicAnxiety, 95);
+        this.roomState.status = "failed";
+        this.roomState.endedAtEpochMs = now;
+        this.roomState.timeline.push(newTimelineEvent("system", "GM FSM triggered bushfire terminal failure", now));
+        return true;
+      }
     }
 
     return false;

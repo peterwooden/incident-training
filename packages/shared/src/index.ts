@@ -1,4 +1,4 @@
-export const ROOM_SCHEMA_VERSION = 3;
+export const ROOM_SCHEMA_VERSION = 4;
 
 export type GameMode = "bomb-defusal" | "bushfire-command";
 
@@ -11,6 +11,7 @@ export type IncidentRole =
   | "Fire Operations SME"
   | "Police Operations SME"
   | "Public Information Officer"
+  | "Meteorologist"
   | "Observer";
 
 export interface Player {
@@ -61,7 +62,10 @@ export type PlayerActionType =
   | "bushfire_drop_water"
   | "bushfire_set_roadblock"
   | "bushfire_create_firebreak"
-  | "bushfire_issue_public_update";
+  | "bushfire_issue_public_update"
+  | "bushfire_issue_forecast"
+  | "bushfire_ack_prompt"
+  | "gm_release_prompt";
 
 export interface Objective {
   id: string;
@@ -135,14 +139,49 @@ export interface BushfireCell {
 export interface BushfireScenarioState {
   type: "bushfire-command";
   timerSec: number;
+  phaseId: BushfirePhaseId;
+  phaseIndex: number;
+  phaseStartedAtEpochMs: number;
+  elapsedSec: number;
   windDirection: "N" | "S" | "E" | "W";
   windStrength: 1 | 2 | 3;
+  windKph: number;
+  distanceToTownMeters: number;
+  trafficCongestion: number;
+  smokeDensity: number;
+  rumorPressure: number;
+  forecastConfidence: number;
+  issuedForecasts: string[];
   publicAnxiety: number;
   containment: number;
   waterBombsAvailable: number;
   cells: BushfireCell[];
   publicAdvisories: string[];
   strategyNotes: string[];
+  promptDeck: BushfirePromptCardState[];
+}
+
+export type BushfirePhaseId =
+  | "phase_1_monitor"
+  | "phase_2_escalation"
+  | "phase_3_crisis"
+  | "phase_4_catastrophe"
+  | "terminal_failed";
+
+export interface BushfirePromptCardState {
+  id: string;
+  phaseId: BushfirePhaseId;
+  targetRole:
+    | "Incident Controller"
+    | "Fire Operations SME"
+    | "Police Operations SME"
+    | "Public Information Officer"
+    | "Meteorologist";
+  title: string;
+  body: string;
+  released: boolean;
+  releasedAtEpochMs?: number;
+  acknowledgedByPlayerIds: string[];
 }
 
 export type ScenarioState = BombScenarioState | BushfireScenarioState;
@@ -158,7 +197,10 @@ export type ScenePanelId =
   | "police_ops_console"
   | "public_info_console"
   | "incident_command_console"
+  | "weather_ops_console"
+  | "role_briefing"
   | "gm_orchestrator"
+  | "gm_prompt_deck"
   | "fsm_editor"
   | "debrief_replay";
 
@@ -535,6 +577,46 @@ export interface IncidentCommandPayload {
   topRisks: string[];
 }
 
+export interface WeatherOpsPayload {
+  phaseId: BushfirePhaseId;
+  windDirection: BushfireScenarioState["windDirection"];
+  windStrength: BushfireScenarioState["windStrength"];
+  windKph: number;
+  forecastConfidence: number;
+  nextShiftHint: string;
+  recommendation: string;
+  issuedForecasts: string[];
+}
+
+export interface RoleBriefingPayload {
+  phaseId: BushfirePhaseId;
+  role: IncidentRole;
+  roleLabel: string;
+  prompts: Array<{
+    id: string;
+    title: string;
+    body: string;
+    releasedAtEpochMs?: number;
+    acknowledged: boolean;
+    severity: "low" | "medium" | "high";
+  }>;
+}
+
+export interface GmPromptDeckPayload {
+  phaseId: BushfirePhaseId;
+  cards: Array<{
+    id: string;
+    phaseId: BushfirePhaseId;
+    targetRole: BushfirePromptCardState["targetRole"];
+    title: string;
+    body: string;
+    released: boolean;
+    releasedAtEpochMs?: number;
+    acknowledgementCount: number;
+  }>;
+  releasableCardIds: string[];
+}
+
 export interface GmOrchestratorPayload {
   players: Player[];
   accessByPlayer: Record<string, ScenePanelId[]>;
@@ -550,7 +632,7 @@ export interface GmOrchestratorPayload {
 export interface FsmNodeView {
   id: string;
   label: string;
-  kind: "room-status" | "scenario-status" | "stage" | "metric-band";
+  kind: "room-status" | "scenario-status" | "stage" | "phase" | "metric-band";
   active: boolean;
   x: number;
   y: number;
@@ -588,12 +670,15 @@ export interface ScenePanelPayloadMap {
   police_ops_console: PoliceOpsPayload;
   public_info_console: PublicInfoPayload;
   incident_command_console: IncidentCommandPayload;
+  weather_ops_console: WeatherOpsPayload;
+  role_briefing: RoleBriefingPayload;
   gm_orchestrator: GmOrchestratorPayload;
+  gm_prompt_deck: GmPromptDeckPayload;
   fsm_editor: FsmEditorPayload;
   debrief_replay: DebriefReplayPayload;
 }
 
-export type LiveGameplayPanelId = Exclude<ScenePanelId, "gm_orchestrator" | "fsm_editor" | "debrief_replay">;
+export type LiveGameplayPanelId = Exclude<ScenePanelId, "gm_orchestrator" | "gm_prompt_deck" | "fsm_editor" | "debrief_replay">;
 export type OverlayTextLevelForPanel<K extends ScenePanelId> = K extends LiveGameplayPanelId
   ? Exclude<OverlayTextLevel, "dense">
   : OverlayTextLevel;

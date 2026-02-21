@@ -13,6 +13,7 @@ const ROLE_POOLS: Record<GameMode, IncidentRole[]> = {
     "Fire Operations SME",
     "Police Operations SME",
     "Public Information Officer",
+    "Meteorologist",
     "Observer",
   ],
 };
@@ -24,6 +25,7 @@ const REQUIRED_ROLES: Record<GameMode, IncidentRole[]> = {
     "Fire Operations SME",
     "Police Operations SME",
     "Public Information Officer",
+    "Meteorologist",
   ],
 };
 

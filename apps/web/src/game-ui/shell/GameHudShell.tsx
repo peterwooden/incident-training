@@ -5,6 +5,7 @@ import type {
   BombRulebookPayload,
   BombSafetyTelemetryPayload,
   BushfireMapPayload,
+  GmPromptDeckPayload,
   DebriefReplayPayload,
   FireOpsPayload,
   FsmEditorPayload,
@@ -15,8 +16,10 @@ import type {
   PoliceOpsPayload,
   PlayerActionType,
   PublicInfoPayload,
+  RoleBriefingPayload,
   RoomView,
   ScenePanelId,
+  WeatherOpsPayload,
 } from "@incident/shared";
 import type { Session } from "../../types";
 import { useAudioBus } from "../../audio/AudioBus";
@@ -29,10 +32,14 @@ import { FireOpsPanel } from "../panels/bushfire/FireOpsPanel";
 import { IncidentCommandPanel } from "../panels/bushfire/IncidentCommandPanel";
 import { PoliceOpsPanel } from "../panels/bushfire/PoliceOpsPanel";
 import { PublicInfoPanel } from "../panels/bushfire/PublicInfoPanel";
+import { RoleBriefingPanel } from "../panels/bushfire/RoleBriefingPanel";
+import { WeatherOpsPanel } from "../panels/bushfire/WeatherOpsPanel";
 import { DebriefReplayPanel } from "../gm/DebriefReplayPanel";
 import { GmFsmPanel } from "../gm/GmFsmPanel";
 import { GmOrchestratorPanel } from "../gm/GmOrchestratorPanel";
+import { GmPromptDeckPanel } from "../gm/GmPromptDeckPanel";
 import { PanelDashboard } from "./PanelDashboard";
+import { roleLabelForMode } from "../roles";
 
 interface GameHudShellProps {
   state: RoomView;
@@ -70,6 +77,7 @@ export function GameHudShell({
     [session.playerId, state.players],
   );
   const isGm = Boolean(me?.isGameMaster);
+  const roleLabel = me ? roleLabelForMode(state.mode, me.role) : "unknown";
 
   useEffect(() => {
     const orderedPanels = state.panelDeck.defaultOrder
@@ -235,6 +243,23 @@ export function GameHudShell({
         );
       case "incident_command_console":
         return <IncidentCommandPanel payload={panel.payload as IncidentCommandPayload} />;
+      case "weather_ops_console":
+        return (
+          <WeatherOpsPanel
+            payload={panel.payload as WeatherOpsPayload}
+            locked={panel.locked.locked || state.status !== "running"}
+            onIssueForecast={(forecastType) =>
+              onAction("bushfire_issue_forecast", "weather_ops_console", { forecastType })}
+          />
+        );
+      case "role_briefing":
+        return (
+          <RoleBriefingPanel
+            payload={panel.payload as RoleBriefingPayload}
+            locked={panel.locked.locked || state.status !== "running"}
+            onAcknowledge={(promptId) => onAction("bushfire_ack_prompt", "role_briefing", { promptId })}
+          />
+        );
       case "gm_orchestrator": {
         const payload = panel.payload as GmOrchestratorPayload;
         const panelIds = Object.keys(state.panelDeck.panelsById) as ScenePanelId[];
@@ -249,6 +274,14 @@ export function GameHudShell({
           />
         );
       }
+      case "gm_prompt_deck":
+        return (
+          <GmPromptDeckPanel
+            payload={panel.payload as GmPromptDeckPayload}
+            locked={panel.locked.locked || state.status !== "running"}
+            onRelease={(cardId) => onAction("gm_release_prompt", "gm_prompt_deck", { cardId })}
+          />
+        );
       case "fsm_editor":
         return (
           <GmFsmPanel
@@ -278,7 +311,7 @@ export function GameHudShell({
           <p className="eyebrow">ROOM {state.roomCode}</p>
           <h1>{state.mode === "bomb-defusal" ? "Bomb Defusal" : "Bushfire Command"}</h1>
           <div className="topbar-chipline">
-            <span className="chip">role {me?.role ?? "unknown"}</span>
+            <span className="chip">role {roleLabel}</span>
             <span className={`chip ${state.status === "running" ? "good" : "supporting"}`}>{state.status}</span>
           </div>
         </div>

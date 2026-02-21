@@ -30,6 +30,11 @@ Each mode exposes a panel registry. Panels are `shared`, `role-scoped`, or `gm-o
 - GM sees all panels and can simulate role perspective.
 - All action authorization is enforced server-side by panel access + lock state.
 
+## Canonical Gameplay Specs
+
+- Bushfire Command v2 spec: `/Users/peterwooden/incident-training-rpg/docs/game-modes/bushfire-command/gameplay-spec.md`
+- Game mode docs index: `/Users/peterwooden/incident-training-rpg/docs/game-modes/README.md`
+
 ## API
 
 - `POST /api/rooms`

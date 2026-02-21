@@ -115,6 +115,142 @@ async function run() {
       throw new Error("expected GM FSM transition to switch to symbols stage");
     }
 
+    const createBushfireResp = await fetch(`${BASE_URL}/api/rooms`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gmName: "GM Bushfire", mode: "bushfire-command" }),
+    });
+    if (!createBushfireResp.ok) throw new Error(`create bushfire room failed: ${createBushfireResp.status}`);
+    const bushfireCreated = await createBushfireResp.json();
+    const bushfireCode = bushfireCreated.roomCode;
+
+    const joinBushfire = async (name, preferredRole) => {
+      const resp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/join`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name, preferredRole }),
+      });
+      if (!resp.ok) throw new Error(`bushfire join failed (${name}): ${resp.status}`);
+      return resp.json();
+    };
+
+    const firePlayer = await joinBushfire("Fire", "Fire Operations SME");
+    const policePlayer = await joinBushfire("Police", "Police Operations SME");
+    const radioPlayer = await joinBushfire("Radio", "Public Information Officer");
+
+    const blockedStartResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/start`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gmSecret: bushfireCreated.gmSecret, forceStart: false }),
+    });
+    if (blockedStartResp.status !== 409) {
+      throw new Error(`expected missing-role start block, got ${blockedStartResp.status}`);
+    }
+    const blockedPayload = await blockedStartResp.json();
+    if (!Array.isArray(blockedPayload.missingRoles) || !blockedPayload.missingRoles.includes("Meteorologist")) {
+      throw new Error("expected Meteorologist in missing role list");
+    }
+
+    const weatherPlayer = await joinBushfire("Weather", "Meteorologist");
+
+    const startBushfireResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/start`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gmSecret: bushfireCreated.gmSecret, forceStart: false }),
+    });
+    if (!startBushfireResp.ok) throw new Error(`bushfire start failed: ${startBushfireResp.status}`);
+
+    const gmBushfireStateResp = await fetch(
+      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(bushfireCreated.gmPlayerId)}`,
+    );
+    if (!gmBushfireStateResp.ok) throw new Error("failed to fetch bushfire gm state");
+    const gmBushfireState = await gmBushfireStateResp.json();
+    const promptDeck = gmBushfireState.state.panelDeck?.panelsById?.gm_prompt_deck?.payload;
+    if (!promptDeck?.releasableCardIds?.length) {
+      throw new Error("expected releasable prompt cards for GM");
+    }
+
+    const cardId = promptDeck.releasableCardIds[0];
+    const releaseResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        playerId: bushfireCreated.gmPlayerId,
+        actionType: "gm_release_prompt",
+        panelId: "gm_prompt_deck",
+        payload: { cardId },
+      }),
+    });
+    if (!releaseResp.ok) throw new Error(`prompt release failed: ${releaseResp.status}`);
+
+    const weatherStateResp = await fetch(
+      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(weatherPlayer.playerId)}`,
+    );
+    const weatherState = await weatherStateResp.json();
+    const weatherPrompts = weatherState.state.panelDeck?.panelsById?.role_briefing?.payload?.prompts ?? [];
+
+    const fireStateResp = await fetch(
+      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(firePlayer.playerId)}`,
+    );
+    const fireState = await fireStateResp.json();
+    const firePrompts = fireState.state.panelDeck?.panelsById?.role_briefing?.payload?.prompts ?? [];
+
+    const radioStateResp = await fetch(
+      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(radioPlayer.playerId)}`,
+    );
+    const radioState = await radioStateResp.json();
+    const radioPrompts = radioState.state.panelDeck?.panelsById?.role_briefing?.payload?.prompts ?? [];
+
+    const visibleCount =
+      [weatherPrompts, firePrompts, radioPrompts]
+        .map((list) => list.some((prompt) => prompt.id === cardId))
+        .filter(Boolean)
+        .length;
+    if (visibleCount !== 1) {
+      throw new Error("expected released prompt to be private to exactly one role panel");
+    }
+
+    const phase4Resp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        playerId: bushfireCreated.gmPlayerId,
+        actionType: "gm_fsm_transition",
+        panelId: "fsm_editor",
+        payload: { transitionId: "bushfire-phase:phase_4_catastrophe" },
+      }),
+    });
+    if (!phase4Resp.ok) throw new Error(`phase transition failed: ${phase4Resp.status}`);
+
+    const terminalResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        playerId: bushfireCreated.gmPlayerId,
+        actionType: "gm_fsm_transition",
+        panelId: "fsm_editor",
+        payload: { transitionId: "bushfire-state:terminal_failed" },
+      }),
+    });
+    if (!terminalResp.ok) throw new Error(`terminal transition failed: ${terminalResp.status}`);
+
+    const terminalStateResp = await fetch(
+      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(policePlayer.playerId)}`,
+    );
+    const terminalState = await terminalStateResp.json();
+    if (terminalState.state.status !== "failed") {
+      throw new Error("expected bushfire scenario terminal failure state");
+    }
+
+    const gmTerminalStateResp = await fetch(
+      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(bushfireCreated.gmPlayerId)}`,
+    );
+    const gmTerminalState = await gmTerminalStateResp.json();
+    const currentNodeId = gmTerminalState.state.panelDeck?.panelsById?.fsm_editor?.payload?.currentNodeId;
+    if (currentNodeId !== "terminal_failed") {
+      throw new Error("expected FSM current node terminal_failed for GM view");
+    }
+
     console.log("E2E passed");
     reader.cancel();
   } finally {

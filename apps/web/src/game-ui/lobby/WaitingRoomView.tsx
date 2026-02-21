@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { IncidentRole, RoomView } from "@incident/shared";
 import type { Session } from "../../types";
+import { roleLabelForMode } from "../roles";
 
 const MODE_ROLES: Record<RoomView["mode"], IncidentRole[]> = {
   "bomb-defusal": [
@@ -15,6 +16,7 @@ const MODE_ROLES: Record<RoomView["mode"], IncidentRole[]> = {
     "Fire Operations SME",
     "Police Operations SME",
     "Public Information Officer",
+    "Meteorologist",
     "Observer",
   ],
 };
@@ -26,6 +28,7 @@ const REQUIRED_ROLES: Record<RoomView["mode"], IncidentRole[]> = {
     "Fire Operations SME",
     "Police Operations SME",
     "Public Information Officer",
+    "Meteorologist",
   ],
 };
 
@@ -94,12 +97,12 @@ export function WaitingRoomView({ state, session, error, onAssignRole, onStart }
                 >
                   {roles.map((role) => (
                     <option key={role} value={role}>
-                      {role}
+                      {roleLabelForMode(state.mode, role)}
                     </option>
                   ))}
                 </select>
               ) : (
-                <p className="waiting-role-label">{player.role}</p>
+                <p className="waiting-role-label">{roleLabelForMode(state.mode, player.role)}</p>
               )}
             </article>
           ))}

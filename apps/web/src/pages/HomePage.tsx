@@ -32,7 +32,7 @@ const MODE_RITUAL: Record<GameMode, string[]> = {
   ],
   "bushfire-command": [
     "Create a Slack channel for command comms.",
-    "Assign Incident Controller, Fire Ops, Police Ops, and Public Info Officer.",
+    "Assign Mayor, Firefighter, Police Officer, Radio Host, and Meteorologist.",
     "Use map interactions as execution surface and Slack for coordination only.",
   ],
 };

@@ -1414,6 +1414,135 @@ ul {
   font-size: 0.79rem;
 }
 
+.weather-stage,
+.briefing-stage {
+  padding: 0.5rem;
+}
+
+.weather-dial-ring {
+  fill: none;
+  stroke: #9ac8f772;
+  stroke-width: 2;
+}
+
+.weather-dial-core {
+  fill: #0f1b2eb8;
+  stroke: #ffffff22;
+}
+
+.weather-arrow {
+  fill: #cbe6ff;
+}
+
+.weather-arrow-tail {
+  stroke: #95cbff;
+  stroke-width: 3;
+}
+
+.weather-readout {
+  fill: #f5d8ab;
+  font-size: 12px;
+}
+
+.weather-track {
+  fill: #0d1828;
+  stroke: #ffffff24;
+}
+
+.weather-fill {
+  fill: #ff9866;
+}
+
+.weather-label {
+  fill: #bed0ed;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.weather-value {
+  fill: #e9f2ff;
+  font-size: 11px;
+}
+
+.weather-note {
+  fill: #d7e2f4;
+  font-size: 10px;
+}
+
+.weather-action-row {
+  margin-top: 0.46rem;
+  display: flex;
+  gap: 0.32rem;
+  flex-wrap: wrap;
+}
+
+.weather-action-chip {
+  border-radius: 999px;
+  background: #223b5d;
+  padding: 0.25rem 0.54rem;
+  font-size: 0.73rem;
+}
+
+.briefing-empty {
+  min-height: 170px;
+  display: grid;
+  place-items: center;
+  color: #b8c8df;
+  font-size: 0.86rem;
+}
+
+.briefing-card-list {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.briefing-card {
+  border: 1px solid #ffffff1f;
+  border-radius: 11px;
+  background: #0f1728;
+  padding: 0.42rem;
+  display: grid;
+  gap: 0.32rem;
+}
+
+.briefing-card.severity-medium {
+  border-color: #ffb37773;
+}
+
+.briefing-card.severity-high {
+  border-color: #ff8c867b;
+}
+
+.briefing-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.briefing-card-head h4 {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.briefing-card p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.briefing-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.briefing-time {
+  font-size: 0.72rem;
+  color: #c4d3ea;
+}
+
 .gm-stage {
   padding: 0.48rem;
 }
@@ -1672,6 +1801,53 @@ ul {
 
 .lock-chip.locked {
   background: #6e3030;
+}
+
+.gm-prompt-stage {
+  padding: 0.5rem;
+}
+
+.gm-prompt-columns {
+  display: grid;
+  gap: 0.44rem;
+}
+
+.gm-prompt-column h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+  color: #d6e3f9;
+}
+
+.gm-prompt-cards {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.gm-prompt-card {
+  border: 1px solid #ffffff21;
+  border-radius: 10px;
+  background: #101a2c;
+  padding: 0.38rem;
+  display: grid;
+  gap: 0.22rem;
+}
+
+.gm-prompt-card.released {
+  border-color: #86dfac78;
+  background: #10291f;
+}
+
+.gm-prompt-card-head,
+.gm-prompt-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.gm-prompt-card p {
+  margin: 0;
+  font-size: 0.78rem;
 }
 
 .timeline-strip {

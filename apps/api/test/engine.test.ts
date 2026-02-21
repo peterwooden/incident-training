@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { IncidentRole, RoomState } from "@incident/shared";
 import { ROOM_SCHEMA_VERSION } from "@incident/shared";
 import { createSeededRandom, snapshotCursor } from "../src/domain/rng";
+import { requiredRolesForMode } from "../src/domain/roles";
 import { BombDefusalMode } from "../src/engine/bombDefusalMode";
 import { BushfireCommandMode } from "../src/engine/bushfireCommandMode";
 import type { ModeMutation } from "../src/engine/types";
@@ -203,6 +204,11 @@ describe("BombDefusalMode", () => {
 });
 
 describe("BushfireCommandMode", () => {
+  it("requires meteorologist as a bushfire role gate", () => {
+    const required = requiredRolesForMode("bushfire-command");
+    expect(required).toContain("Meteorologist");
+  });
+
   it("deploy action improves containment opportunity", () => {
     const mode = new BushfireCommandMode();
     const state = baseState("bushfire-command", "Fire Operations SME");
@@ -233,7 +239,14 @@ describe("BushfireCommandMode", () => {
       viewer: stateA.players[0],
       effectiveRole: "Fire Operations SME",
       panelState: stateA.panelState,
-      roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Observer"],
+      roleOptions: [
+        "Incident Controller",
+        "Fire Operations SME",
+        "Police Operations SME",
+        "Public Information Officer",
+        "Meteorologist",
+        "Observer",
+      ],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
     const deckB = mode.buildPanelDeck({
@@ -241,7 +254,14 @@ describe("BushfireCommandMode", () => {
       viewer: stateB.players[0],
       effectiveRole: "Fire Operations SME",
       panelState: stateB.panelState,
-      roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Observer"],
+      roleOptions: [
+        "Incident Controller",
+        "Fire Operations SME",
+        "Police Operations SME",
+        "Public Information Officer",
+        "Meteorologist",
+        "Observer",
+      ],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
 
@@ -253,5 +273,150 @@ describe("BushfireCommandMode", () => {
     expect(payloadA && "fireFrontContours" in payloadA).toBe(true);
     expect(payloadA && "windField" in payloadA).toBe(true);
     expect(JSON.stringify(payloadA)).toEqual(JSON.stringify(payloadB));
+  });
+
+  it("keeps prompt deck deterministic by seed", () => {
+    const mode = new BushfireCommandMode();
+    const a = baseState("bushfire-command", "Meteorologist");
+    const b = baseState("bushfire-command", "Meteorologist");
+    if (a.scenario.type !== "bushfire-command" || b.scenario.type !== "bushfire-command") {
+      throw new Error("unexpected scenario");
+    }
+    expect(a.scenario.promptDeck.map((card) => card.id)).toEqual(b.scenario.promptDeck.map((card) => card.id));
+  });
+
+  it("advances through all bushfire phases and ends in terminal failure", () => {
+    const mode = new BushfireCommandMode();
+    let state = baseState("bushfire-command", "Incident Controller");
+    let now = Date.now();
+
+    if (state.scenario.type !== "bushfire-command") {
+      throw new Error("unexpected scenario");
+    }
+    expect(state.scenario.phaseId).toBe("phase_1_monitor");
+
+    for (let i = 0; i < 12; i += 1) {
+      state = applyMutation(state, mode.onTick(state, now));
+      now += 15_000;
+    }
+    if (state.scenario.type !== "bushfire-command") {
+      throw new Error("unexpected scenario");
+    }
+    expect(state.scenario.phaseId).toBe("phase_2_escalation");
+
+    for (let i = 0; i < 16; i += 1) {
+      state = applyMutation(state, mode.onTick(state, now));
+      now += 15_000;
+    }
+    if (state.scenario.type !== "bushfire-command") {
+      throw new Error("unexpected scenario");
+    }
+    expect(state.scenario.phaseId).toBe("phase_3_crisis");
+
+    for (let i = 0; i < 16; i += 1) {
+      state = applyMutation(state, mode.onTick(state, now));
+      now += 15_000;
+    }
+    if (state.scenario.type !== "bushfire-command") {
+      throw new Error("unexpected scenario");
+    }
+    expect(state.scenario.phaseId).toBe("phase_4_catastrophe");
+
+    for (let i = 0; i < 8; i += 1) {
+      state = applyMutation(state, mode.onTick(state, now));
+      now += 15_000;
+    }
+
+    expect(state.status).toBe("failed");
+    if (state.scenario.type === "bushfire-command") {
+      expect(state.scenario.phaseId).toBe("terminal_failed");
+      expect(state.scenario.timerSec).toBe(0);
+    }
+  });
+
+  it("releases prompts for the target role and keeps other roles isolated", () => {
+    const mode = new BushfireCommandMode();
+    const base = baseState("bushfire-command", "Incident Controller");
+    const gm = { id: "gm", name: "GM", role: "Incident Controller" as const, isGameMaster: true };
+    const met = { id: "met", name: "Met", role: "Meteorologist" as const, isGameMaster: false };
+    const fire = { id: "fire", name: "Fire", role: "Fire Operations SME" as const, isGameMaster: false };
+    let state: RoomState = {
+      ...base,
+      players: [gm, met, fire],
+      panelState: {
+        accessGrants: {
+          gm: mode.getPanelDefinitions().map((panel) => panel.id),
+          met: mode.getDefaultAccessTemplate("Meteorologist"),
+          fire: mode.getDefaultAccessTemplate("Fire Operations SME"),
+        },
+        panelLocks: {},
+      },
+    };
+
+    state = applyMutation(
+      state,
+      mode.onAction(
+        state,
+        {
+          type: "gm_release_prompt",
+          playerId: "gm",
+          panelId: "gm_prompt_deck",
+          payload: { cardId: "p1_radio_rumor" },
+        },
+        Date.now(),
+      ),
+    );
+
+    const metDeck = mode.buildPanelDeck({
+      state,
+      viewer: met,
+      effectiveRole: met.role,
+      panelState: state.panelState,
+      roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Meteorologist", "Observer"],
+      debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
+    });
+
+    const fireDeck = mode.buildPanelDeck({
+      state,
+      viewer: fire,
+      effectiveRole: fire.role,
+      panelState: state.panelState,
+      roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Meteorologist", "Observer"],
+      debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
+    });
+
+    const metPrompts = (metDeck.panelsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
+    const firePrompts = (fireDeck.panelsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
+
+    expect(metPrompts.map((prompt) => prompt.id)).not.toContain("p1_radio_rumor");
+    expect(firePrompts.map((prompt) => prompt.id)).not.toContain("p1_radio_rumor");
+
+    const pio = { id: "pio", name: "PIO", role: "Public Information Officer" as const, isGameMaster: false };
+    const pioDeck = mode.buildPanelDeck({
+      state: {
+        ...state,
+        players: [...state.players, pio],
+        panelState: {
+          ...state.panelState,
+          accessGrants: {
+            ...state.panelState.accessGrants,
+            pio: mode.getDefaultAccessTemplate("Public Information Officer"),
+          },
+        },
+      },
+      viewer: pio,
+      effectiveRole: pio.role,
+      panelState: {
+        ...state.panelState,
+        accessGrants: {
+          ...state.panelState.accessGrants,
+          pio: mode.getDefaultAccessTemplate("Public Information Officer"),
+        },
+      },
+      roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Meteorologist", "Observer"],
+      debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
+    });
+    const pioPrompts = (pioDeck.panelsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
+    expect(pioPrompts.map((prompt) => prompt.id)).toContain("p1_radio_rumor");
   });
 });

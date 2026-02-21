@@ -194,7 +194,7 @@ export function BushfireMapPanel({
   return (
     <section className="scene-panel bushfire-map-panel visual-heavy">
       <header className="panel-chip-row">
-        <h3>Town Firefront</h3>
+        <h3>The Valley Firefront</h3>
         <div className="chip-strip">
           <span className="chip warning">contain {payload.containment}%</span>
           <span className="chip">anxiety {payload.anxiety}%</span>
@@ -217,7 +217,7 @@ export function BushfireMapPanel({
             <svg
               viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
               className="town-map-svg geometry-layer"
-              aria-label="Bushfire map"
+              aria-label="The Valley bushfire map"
               onPointerMove={(event) => {
                 if (activeTool) {
                   setDragPoint(pointerToSvgPoint(event));

@@ -43,6 +43,7 @@ const DEFAULT_BY_ROLE: Record<IncidentRole, ScenePanelId[]> = {
   "Fire Operations SME": ["mission_hud"],
   "Police Operations SME": ["mission_hud"],
   "Public Information Officer": ["mission_hud"],
+  Meteorologist: ["mission_hud"],
   Observer: ["mission_hud"],
 };
 
