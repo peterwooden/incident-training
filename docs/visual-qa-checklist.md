@@ -20,7 +20,7 @@
 - `prefers-reduced-motion` users get reduced mode by default.
 
 ## Performance
-- Hero panels sustain smooth interaction on desktop during active simulation.
+- Hero widgets sustain smooth interaction on desktop during active simulation.
 - Reduced FX mode remains usable on smaller screens and mid-tier devices.
 
 ## Regression Snapshot Coverage

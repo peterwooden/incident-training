@@ -120,8 +120,8 @@ export function BombDeviceConsolePanel({
   };
 
   return (
-    <section className="scene-panel bomb-device-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget bomb-device-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Device Console</h3>
         <div className="chip-strip">
           <span className="chip warning">S{payload.stageIndex + 1} {payload.stageTimerSec}s</span>
@@ -131,7 +131,7 @@ export function BombDeviceConsolePanel({
         </div>
       </header>
 
-      <p className="panel-annotation">
+      <p className="widget-annotation">
         {payload.stageObjective}
       </p>
 

@@ -12,8 +12,8 @@ export function BombSafetyTelemetryPanel({ payload, locked, onStabilize }: BombS
   const { pulse } = useAmbientMotionClock({ loopMs: 1900, paused: false });
 
   return (
-    <section className="scene-panel bomb-safety-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget bomb-safety-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Safety Telemetry</h3>
         <div className="chip-strip">
           <span className="chip">{payload.stageId}</span>

@@ -4,12 +4,12 @@ import type {
   BushfirePromptCardState,
   BushfireScenarioState,
   IncidentRole,
-  PanelDeckView,
+  WidgetDeckView,
   PlayerAction,
   RoomState,
-  ScenePanelAccessRule,
-  ScenePanelId,
-  ScenePanelView,
+  WidgetAccessRule,
+  WidgetId,
+  WidgetView,
 } from "@incident/shared";
 import type { GameModeEngine, ModeMutation, SeededRandom } from "./types";
 import { newTimelineEvent } from "./helpers";
@@ -277,7 +277,7 @@ const ZONE_GEOMETRY = [
   },
 ];
 
-const PANEL_DEFINITIONS: ScenePanelAccessRule[] = [
+const PANEL_DEFINITIONS: WidgetAccessRule[] = [
   { id: "mission_hud", kind: "shared", defaultRoles: ["Observer"] },
   { id: "town_map", kind: "shared", defaultRoles: ["Observer"] },
   { id: "fire_ops_console", kind: "role-scoped", defaultRoles: ["Fire Operations SME"] },
@@ -292,7 +292,7 @@ const PANEL_DEFINITIONS: ScenePanelAccessRule[] = [
   { id: "debrief_replay", kind: "gm-only", defaultRoles: [] },
 ];
 
-const DEFAULT_BY_ROLE: Record<IncidentRole, ScenePanelId[]> = {
+const DEFAULT_BY_ROLE: Record<IncidentRole, WidgetId[]> = {
   "Incident Controller": ["mission_hud", "town_map", "incident_command_console", "role_briefing"],
   "Fire Operations SME": ["mission_hud", "town_map", "fire_ops_console", "role_briefing"],
   "Police Operations SME": ["mission_hud", "town_map", "police_ops_console", "role_briefing"],
@@ -726,16 +726,16 @@ export class BushfireCommandMode implements GameModeEngine {
     };
   }
 
-  getPanelDefinitions(): ScenePanelAccessRule[] {
+  getWidgetDefinitions(): WidgetAccessRule[] {
     return PANEL_DEFINITIONS;
   }
 
-  getDefaultAccessTemplate(role: IncidentRole): ScenePanelId[] {
+  getDefaultWidgetAccessTemplate(role: IncidentRole): WidgetId[] {
     return DEFAULT_BY_ROLE[role] ?? ["mission_hud", "town_map", "role_briefing"];
   }
 
-  getPanelForAction(actionType: PlayerAction["type"]): ScenePanelId | undefined {
-    const map: Partial<Record<PlayerAction["type"], ScenePanelId>> = {
+  getWidgetForAction(actionType: PlayerAction["type"]): WidgetId | undefined {
+    const map: Partial<Record<PlayerAction["type"], WidgetId>> = {
       bushfire_deploy_fire_crew: "fire_ops_console",
       bushfire_drop_water: "fire_ops_console",
       bushfire_create_firebreak: "fire_ops_console",
@@ -998,11 +998,11 @@ export class BushfireCommandMode implements GameModeEngine {
     };
   }
 
-  buildPanelDeck(args: {
+  buildWidgetDeck(args: {
     state: RoomState;
     viewer?: { id: string; role: IncidentRole; isGameMaster: boolean };
     effectiveRole: IncidentRole;
-    panelState: RoomState["panelState"];
+    widgetState: RoomState["widgetState"];
     roleOptions: IncidentRole[];
     debriefMetrics: {
       executionAccuracy: number;
@@ -1010,7 +1010,7 @@ export class BushfireCommandMode implements GameModeEngine {
       communicationDiscipline: number;
       overall: number;
     };
-  }): PanelDeckView {
+  }): WidgetDeckView {
     const scenario = args.state.scenario;
     if (scenario.type !== "bushfire-command") {
       throw new Error("invalid scenario");
@@ -1018,18 +1018,18 @@ export class BushfireCommandMode implements GameModeEngine {
 
     const viewer = args.viewer;
     const isGm = Boolean(viewer?.isGameMaster);
-    const granted = viewer ? args.panelState.accessGrants[viewer.id] ?? this.getDefaultAccessTemplate(viewer.role) : [];
-    const availablePanelIds = isGm
+    const granted = viewer ? args.widgetState.accessGrants[viewer.id] ?? this.getDefaultWidgetAccessTemplate(viewer.role) : [];
+    const availableWidgetIds = isGm
       ? PANEL_DEFINITIONS.map((panel) => panel.id)
       : granted.filter(
-          (panelId) => panelId !== "gm_orchestrator" && panelId !== "gm_prompt_deck" && panelId !== "fsm_editor" && panelId !== "debrief_replay",
+          (widgetId) => widgetId !== "gm_orchestrator" && widgetId !== "gm_prompt_deck" && widgetId !== "fsm_editor" && widgetId !== "debrief_replay",
         );
 
-    const panelMap: PanelDeckView["panelsById"] = {};
-    const withLock = (id: ScenePanelId) => args.panelState.panelLocks[id] ?? { locked: false };
+    const panelMap: WidgetDeckView["widgetsById"] = {};
+    const withLock = (id: WidgetId) => args.widgetState.widgetLocks[id] ?? { locked: false };
 
-    const pushPanel = <K extends ScenePanelId>(panel: ScenePanelView<K>): void => {
-      if (availablePanelIds.includes(panel.id)) {
+    const pushPanel = <K extends WidgetId>(panel: WidgetView<K>): void => {
+      if (availableWidgetIds.includes(panel.id)) {
         panelMap[panel.id] = panel as never;
       }
     };
@@ -1299,9 +1299,9 @@ export class BushfireCommandMode implements GameModeEngine {
         locked: withLock("gm_orchestrator"),
         payload: {
           players: args.state.players,
-          accessByPlayer: args.panelState.accessGrants,
-          panelLocks: args.panelState.panelLocks,
-          simulatedRole: args.panelState.gmSimulatedRole,
+          accessByPlayer: args.widgetState.accessGrants,
+          widgetLocks: args.widgetState.widgetLocks,
+          simulatedRole: args.widgetState.gmSimulatedRole,
           roleOptions: args.roleOptions,
           cameraTargets: scenario.cells.map((cell) => ({
             id: `cam_${cell.id}`,
@@ -1407,10 +1407,10 @@ export class BushfireCommandMode implements GameModeEngine {
       .map((panel) => panel.id);
 
     return {
-      availablePanelIds: defaultOrder,
-      panelsById: panelMap,
+      availableWidgetIds: defaultOrder,
+      widgetsById: panelMap,
       defaultOrder,
-      gmSimulatedRole: args.panelState.gmSimulatedRole,
+      gmSimulatedRole: args.widgetState.gmSimulatedRole,
     };
   }
 }

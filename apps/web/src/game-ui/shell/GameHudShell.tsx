@@ -18,7 +18,7 @@ import type {
   PublicInfoPayload,
   RoleBriefingPayload,
   RoomView,
-  ScenePanelId,
+  WidgetId,
   WeatherOpsPayload,
 } from "@incident/shared";
 import type { Session } from "../../types";
@@ -38,7 +38,7 @@ import { DebriefReplayPanel } from "../gm/DebriefReplayPanel";
 import { GmFsmPanel } from "../gm/GmFsmPanel";
 import { GmOrchestratorPanel } from "../gm/GmOrchestratorPanel";
 import { GmPromptDeckPanel } from "../gm/GmPromptDeckPanel";
-import { PanelDashboard } from "./PanelDashboard";
+import { WidgetDashboard } from "./WidgetDashboard";
 import { roleLabelForMode } from "../roles";
 
 interface GameHudShellProps {
@@ -47,12 +47,12 @@ interface GameHudShellProps {
   error?: string;
   onAction: (
     actionType: PlayerActionType,
-    panelId: ScenePanelId,
+    widgetId: WidgetId,
     payload?: Record<string, string | number | boolean>,
   ) => Promise<void>;
   onAssignRole: (playerId: string, role: IncidentRole) => Promise<void>;
-  onSetPanelAccess: (playerId: string, panelId: ScenePanelId, granted: boolean) => Promise<void>;
-  onSetPanelLock: (panelId: ScenePanelId, locked: boolean) => Promise<void>;
+  onSetWidgetAccess: (playerId: string, widgetId: WidgetId, granted: boolean) => Promise<void>;
+  onSetWidgetLock: (widgetId: WidgetId, locked: boolean) => Promise<void>;
   onSetSimulatedRole: (role?: IncidentRole) => Promise<void>;
 }
 
@@ -62,8 +62,8 @@ export function GameHudShell({
   error,
   onAction,
   onAssignRole,
-  onSetPanelAccess,
-  onSetPanelLock,
+  onSetWidgetAccess,
+  onSetWidgetLock,
   onSetSimulatedRole,
 }: GameHudShellProps) {
   const [rulebookPage, setRulebookPage] = useState(0);
@@ -80,19 +80,19 @@ export function GameHudShell({
   const roleLabel = me ? roleLabelForMode(state.mode, me.role) : "unknown";
 
   useEffect(() => {
-    const orderedPanels = state.panelDeck.defaultOrder
-      .map((panelId) => state.panelDeck.panelsById[panelId])
+    const orderedWidgets = state.widgetDeck.defaultOrder
+      .map((widgetId) => state.widgetDeck.widgetsById[widgetId])
       .filter(Boolean);
-    const cue = orderedPanels.find((panel) => panel?.audioCue)?.audioCue;
+    const cue = orderedWidgets.find((panel) => panel?.audioCue)?.audioCue;
     triggerCue(cue);
-  }, [state.timeline.length, state.panelDeck.defaultOrder, state.panelDeck.panelsById, triggerCue]);
+  }, [state.timeline.length, state.widgetDeck.defaultOrder, state.widgetDeck.widgetsById, triggerCue]);
 
   useEffect(() => {
-    const manualPanel = state.panelDeck.panelsById.manual_rulebook;
-    if (!manualPanel) {
+    const manualWidget = state.widgetDeck.widgetsById.manual_rulebook;
+    if (!manualWidget) {
       return;
     }
-    const payload = manualPanel.payload as BombRulebookPayload;
+    const payload = manualWidget.payload as BombRulebookPayload;
     if (!payload.activeSpreadId) {
       return;
     }
@@ -100,22 +100,22 @@ export function GameHudShell({
     if (activeIndex >= 0) {
       setRulebookPage((prev) => (prev === activeIndex ? prev : activeIndex));
     }
-  }, [state.panelDeck.panelsById.manual_rulebook]);
+  }, [state.widgetDeck.widgetsById.manual_rulebook]);
 
-  const renderPanel = (panelId: string) => {
-    const panel = state.panelDeck.panelsById[panelId as ScenePanelId];
-    if (!panel) {
+  const renderWidget = (widgetId: string) => {
+    const widget = state.widgetDeck.widgetsById[widgetId as WidgetId];
+    if (!widget) {
       return null;
     }
     const effectiveFxProfile = "cinematic" as const;
 
-    switch (panel.id) {
+    switch (widget.id) {
       case "mission_hud": {
-        const payload = panel.payload as MissionHudPayload;
+        const payload = widget.payload as MissionHudPayload;
         return (
-          <section className="scene-panel mission-hud-panel visual-heavy">
-            <header className="panel-chip-row">
-              <h3>{panel.title}</h3>
+          <section className="scene-widget mission-hud-panel visual-heavy">
+            <header className="widget-chip-row">
+              <h3>{widget.title}</h3>
               <div className="chip-strip">
                 <span className="chip warning">{payload.timerSec}s</span>
                 <span className="chip">P{payload.pressure}</span>
@@ -180,47 +180,47 @@ export function GameHudShell({
       case "device_console":
         return (
           <BombDeviceConsolePanel
-            payload={panel.payload as BombDeviceConsolePayload}
-            locked={panel.locked.locked || state.status !== "running"}
+            payload={widget.payload as BombDeviceConsolePayload}
+            locked={widget.locked.locked || state.status !== "running"}
             fxProfile={effectiveFxProfile}
-            ambientLoopMs={panel.ambientLoopMs}
-            hoverDepthPx={panel.hoverDepthPx}
+            ambientLoopMs={widget.ambientLoopMs}
+            hoverDepthPx={widget.hoverDepthPx}
             onCutWire={(wireId) => onAction("bomb_cut_wire", "device_console", { wireId })}
             onPressSymbol={(symbol) => onAction("bomb_press_symbol", "device_console", { symbol })}
-            onStabilize={() => onAction("bomb_stabilize_panel", "device_console")}
+            onStabilize={() => onAction("bomb_stabilize_widget", "device_console")}
           />
         );
       case "manual_rulebook":
         return (
           <BombRulebookPanel
-            payload={panel.payload as BombRulebookPayload}
+            payload={widget.payload as BombRulebookPayload}
             currentPage={rulebookPage}
             onChangePage={setRulebookPage}
             fxProfile={effectiveFxProfile}
-            ambientLoopMs={panel.ambientLoopMs}
-            hoverDepthPx={panel.hoverDepthPx}
+            ambientLoopMs={widget.ambientLoopMs}
+            hoverDepthPx={widget.hoverDepthPx}
           />
         );
       case "safety_telemetry":
         return (
           <BombSafetyTelemetryPanel
-            payload={panel.payload as BombSafetyTelemetryPayload}
-            locked={panel.locked.locked || state.status !== "running"}
-            onStabilize={() => onAction("bomb_stabilize_panel", "safety_telemetry")}
+            payload={widget.payload as BombSafetyTelemetryPayload}
+            locked={widget.locked.locked || state.status !== "running"}
+            onStabilize={() => onAction("bomb_stabilize_widget", "safety_telemetry")}
           />
         );
       case "coordination_board":
-        return <BombCoordinationBoardPanel payload={panel.payload as BombCoordinationBoardPayload} />;
+        return <BombCoordinationBoardPanel payload={widget.payload as BombCoordinationBoardPayload} />;
       case "town_map":
         return (
           <BushfireMapPanel
-            payload={panel.payload as BushfireMapPayload}
-            locked={panel.locked.locked || state.status !== "running"}
+            payload={widget.payload as BushfireMapPayload}
+            locked={widget.locked.locked || state.status !== "running"}
             fxProfile={effectiveFxProfile}
-            ambientLoopMs={panel.ambientLoopMs}
-            hoverDepthPx={panel.hoverDepthPx}
-            canUseFireTools={Boolean(state.panelDeck.panelsById.fire_ops_console) || isGm}
-            canUsePoliceTools={Boolean(state.panelDeck.panelsById.police_ops_console) || isGm}
+            ambientLoopMs={widget.ambientLoopMs}
+            hoverDepthPx={widget.hoverDepthPx}
+            canUseFireTools={Boolean(state.widgetDeck.widgetsById.fire_ops_console) || isGm}
+            canUsePoliceTools={Boolean(state.widgetDeck.widgetsById.police_ops_console) || isGm}
             onDeployCrew={(cellId) => onAction("bushfire_deploy_fire_crew", "fire_ops_console", { cellId })}
             onDropWater={(cellId) => onAction("bushfire_drop_water", "fire_ops_console", { cellId })}
             onCreateFirebreak={(cellId) => onAction("bushfire_create_firebreak", "fire_ops_console", { cellId })}
@@ -228,26 +228,26 @@ export function GameHudShell({
           />
         );
       case "fire_ops_console":
-        return <FireOpsPanel payload={panel.payload as FireOpsPayload} />;
+        return <FireOpsPanel payload={widget.payload as FireOpsPayload} />;
       case "police_ops_console":
-        return <PoliceOpsPanel payload={panel.payload as PoliceOpsPayload} />;
+        return <PoliceOpsPanel payload={widget.payload as PoliceOpsPayload} />;
       case "public_info_console":
         return (
           <PublicInfoPanel
-            payload={panel.payload as PublicInfoPayload}
+            payload={widget.payload as PublicInfoPayload}
             advisoryDraft={advisoryDraft}
             onDraftChange={setAdvisoryDraft}
             onPublish={() => onAction("bushfire_issue_public_update", "public_info_console", { template: advisoryDraft })}
-            locked={panel.locked.locked || state.status !== "running"}
+            locked={widget.locked.locked || state.status !== "running"}
           />
         );
       case "incident_command_console":
-        return <IncidentCommandPanel payload={panel.payload as IncidentCommandPayload} />;
+        return <IncidentCommandPanel payload={widget.payload as IncidentCommandPayload} />;
       case "weather_ops_console":
         return (
           <WeatherOpsPanel
-            payload={panel.payload as WeatherOpsPayload}
-            locked={panel.locked.locked || state.status !== "running"}
+            payload={widget.payload as WeatherOpsPayload}
+            locked={widget.locked.locked || state.status !== "running"}
             onIssueForecast={(forecastType) =>
               onAction("bushfire_issue_forecast", "weather_ops_console", { forecastType })}
           />
@@ -255,21 +255,21 @@ export function GameHudShell({
       case "role_briefing":
         return (
           <RoleBriefingPanel
-            payload={panel.payload as RoleBriefingPayload}
-            locked={panel.locked.locked || state.status !== "running"}
+            payload={widget.payload as RoleBriefingPayload}
+            locked={widget.locked.locked || state.status !== "running"}
             onAcknowledge={(promptId) => onAction("bushfire_ack_prompt", "role_briefing", { promptId })}
           />
         );
       case "gm_orchestrator": {
-        const payload = panel.payload as GmOrchestratorPayload;
-        const panelIds = Object.keys(state.panelDeck.panelsById) as ScenePanelId[];
+        const payload = widget.payload as GmOrchestratorPayload;
+        const widgetIds = Object.keys(state.widgetDeck.widgetsById) as WidgetId[];
         return (
           <GmOrchestratorPanel
             payload={payload}
-            panelIds={panelIds}
+            widgetIds={widgetIds}
             onAssignRole={onAssignRole}
-            onTogglePanelAccess={onSetPanelAccess}
-            onTogglePanelLock={onSetPanelLock}
+            onToggleWidgetAccess={onSetWidgetAccess}
+            onToggleWidgetLock={onSetWidgetLock}
             onSimulateRole={onSetSimulatedRole}
           />
         );
@@ -277,16 +277,16 @@ export function GameHudShell({
       case "gm_prompt_deck":
         return (
           <GmPromptDeckPanel
-            payload={panel.payload as GmPromptDeckPayload}
-            locked={panel.locked.locked || state.status !== "running"}
+            payload={widget.payload as GmPromptDeckPayload}
+            locked={widget.locked.locked || state.status !== "running"}
             onRelease={(cardId) => onAction("gm_release_prompt", "gm_prompt_deck", { cardId })}
           />
         );
       case "fsm_editor":
         return (
           <GmFsmPanel
-            payload={panel.payload as FsmEditorPayload}
-            locked={panel.locked.locked}
+            payload={widget.payload as FsmEditorPayload}
+            locked={widget.locked.locked}
             onTransition={(transitionId) =>
               onAction("gm_fsm_transition", "fsm_editor", { transitionId })}
           />
@@ -294,7 +294,7 @@ export function GameHudShell({
       case "debrief_replay":
         return (
           <DebriefReplayPanel
-            payload={panel.payload as DebriefReplayPayload}
+            payload={widget.payload as DebriefReplayPayload}
             index={debriefIndex}
             onIndexChange={setDebriefIndex}
           />
@@ -327,7 +327,7 @@ export function GameHudShell({
         </div>
       </section>
 
-      <PanelDashboard panelIds={state.panelDeck.defaultOrder} renderPanel={renderPanel} />
+      <WidgetDashboard widgetIds={state.widgetDeck.defaultOrder} renderWidget={renderWidget} />
 
       <section className="timeline-strip">
         <h3>Live Feed</h3>

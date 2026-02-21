@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { IncidentRole, PlayerActionType, ScenePanelId } from "@incident/shared";
+import type { IncidentRole, PlayerActionType, WidgetId } from "@incident/shared";
 import {
   assignRole,
   sendAction,
   setGmSimulatedRole,
-  setPanelAccess,
-  setPanelLock,
+  setWidgetAccess,
+  setWidgetLock,
   startRoom,
   subscribeToRoom,
 } from "../api";
@@ -49,7 +49,7 @@ export function RoomPage() {
 
   const onAction = async (
     actionType: PlayerActionType,
-    panelId: ScenePanelId,
+    widgetId: WidgetId,
     payload?: Record<string, string | number | boolean>,
   ) => {
     setError(undefined);
@@ -57,7 +57,7 @@ export function RoomPage() {
       const updated = await sendAction(roomCode, {
         playerId: session.playerId,
         actionType,
-        panelId,
+        widgetId,
         payload,
       });
       setState(updated.state);
@@ -79,16 +79,16 @@ export function RoomPage() {
     }
   };
 
-  const onSetPanelAccess = async (playerId: string, panelId: ScenePanelId, granted: boolean) => {
+  const onSetWidgetAccess = async (playerId: string, widgetId: WidgetId, granted: boolean) => {
     if (!session.gmSecret) {
       return;
     }
     setError(undefined);
     try {
-      const updated = await setPanelAccess(roomCode, {
+      const updated = await setWidgetAccess(roomCode, {
         gmSecret: session.gmSecret,
         playerId,
-        panelId,
+        widgetId,
         granted,
       });
       setState(updated.state);
@@ -97,15 +97,15 @@ export function RoomPage() {
     }
   };
 
-  const onSetPanelLock = async (panelId: ScenePanelId, locked: boolean) => {
+  const onSetWidgetLock = async (widgetId: WidgetId, locked: boolean) => {
     if (!session.gmSecret) {
       return;
     }
     setError(undefined);
     try {
-      const updated = await setPanelLock(roomCode, {
+      const updated = await setWidgetLock(roomCode, {
         gmSecret: session.gmSecret,
-        panelId,
+        widgetId,
         locked,
         reason: locked ? "Locked by GM" : "Unlocked by GM",
       });
@@ -150,8 +150,8 @@ export function RoomPage() {
       error={error}
       onAction={onAction}
       onAssignRole={onAssignRole}
-      onSetPanelAccess={onSetPanelAccess}
-      onSetPanelLock={onSetPanelLock}
+      onSetWidgetAccess={onSetWidgetAccess}
+      onSetWidgetLock={onSetWidgetLock}
       onSetSimulatedRole={onSetSimulatedRole}
     />
   );

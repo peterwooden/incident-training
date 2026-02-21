@@ -12,10 +12,10 @@ import type {
   PlayerAction,
   RoomState,
   RoomView,
-  ScenePanelId,
+  WidgetId,
   SetGmSimulatedRoleRequest,
-  SetPanelAccessRequest,
-  SetPanelLockRequest,
+  SetWidgetAccessRequest,
+  SetWidgetLockRequest,
   StartGameRequest,
 } from "@incident/shared";
 import { ROOM_SCHEMA_VERSION } from "@incident/shared";
@@ -72,7 +72,7 @@ function hasValidStateShape(stored: unknown): stored is RoomState {
     typeof candidate.mode === "string" &&
     SUPPORTED_MODES.has(candidate.mode) &&
     Boolean(candidate.scenario) &&
-    Boolean(candidate.panelState) &&
+    Boolean(candidate.widgetState) &&
     Boolean(candidate.debriefLog)
   );
 }
@@ -108,8 +108,8 @@ export class GameRoomDurableObject extends DurableObject {
     if (request.method === "POST" && path === "/start") return this.handleStart(request);
     if (request.method === "POST" && path === "/action") return this.handleAction(request);
     if (request.method === "POST" && path === "/assign-role") return this.handleAssignRole(request);
-    if (request.method === "POST" && path === "/panel-access") return this.handlePanelAccess(request);
-    if (request.method === "POST" && path === "/panel-lock") return this.handlePanelLock(request);
+    if (request.method === "POST" && path === "/widget-access") return this.handleWidgetAccess(request);
+    if (request.method === "POST" && path === "/widget-lock") return this.handleWidgetLock(request);
     if (request.method === "POST" && path === "/simulate-role") return this.handleSimulateRole(request);
     if (request.method === "GET" && path === "/state") return this.handleState(request);
     if (request.method === "GET" && path === "/events") return this.handleEvents(request);
@@ -154,9 +154,9 @@ export class GameRoomDurableObject extends DurableObject {
     await this.initialized;
   }
 
-  private buildInitialAccessForPlayer(player: Player, state: RoomState): ScenePanelId[] {
+  private buildInitialAccessForWidget(player: Player, state: RoomState): WidgetId[] {
     const engine = getModeEngine(state.mode);
-    return engine.getDefaultAccessTemplate(player.role);
+    return engine.getDefaultWidgetAccessTemplate(player.role);
   }
 
   private async handleInit(request: Request): Promise<Response> {
@@ -192,11 +192,11 @@ export class GameRoomDurableObject extends DurableObject {
       timeline: [newTimelineEvent("system", "Room created by game master", now, gm.id)],
       publicSummary: engine.initSummary(),
       scenario: engine.initScenario(rng),
-      panelState: {
+      widgetState: {
         accessGrants: {
-          [gm.id]: engine.getDefaultAccessTemplate(gm.role),
+          [gm.id]: engine.getDefaultWidgetAccessTemplate(gm.role),
         },
-        panelLocks: {},
+        widgetLocks: {},
       },
       debriefLog: [],
       seed,
@@ -244,7 +244,7 @@ export class GameRoomDurableObject extends DurableObject {
     };
 
     this.roomState.players.push(player);
-    this.roomState.panelState.accessGrants[player.id] = this.buildInitialAccessForPlayer(player, this.roomState);
+    this.roomState.widgetState.accessGrants[player.id] = this.buildInitialAccessForWidget(player, this.roomState);
 
     const now = Date.now();
     this.roomState.timeline.push(
@@ -312,27 +312,27 @@ export class GameRoomDurableObject extends DurableObject {
     return json({ state: this.toRoomView() });
   }
 
-  private allowedPanelsForPlayer(player: Player): ScenePanelId[] {
+  private allowedWidgetsForPlayer(player: Player): WidgetId[] {
     if (!this.roomState) {
       return [];
     }
     if (player.isGameMaster) {
-      return getModeEngine(this.roomState.mode).getPanelDefinitions().map((panel) => panel.id);
+      return getModeEngine(this.roomState.mode).getWidgetDefinitions().map((panel) => panel.id);
     }
 
-    const explicit = this.roomState.panelState.accessGrants[player.id];
+    const explicit = this.roomState.widgetState.accessGrants[player.id];
     if (explicit?.length) {
       return explicit;
     }
 
-    return getModeEngine(this.roomState.mode).getDefaultAccessTemplate(player.role);
+    return getModeEngine(this.roomState.mode).getDefaultWidgetAccessTemplate(player.role);
   }
 
-  private isPanelLocked(panelId: ScenePanelId): boolean {
+  private isWidgetLocked(widgetId: WidgetId): boolean {
     if (!this.roomState) {
       return false;
     }
-    return this.roomState.panelState.panelLocks[panelId]?.locked === true;
+    return this.roomState.widgetState.widgetLocks[widgetId]?.locked === true;
   }
 
   private async handleAction(request: Request): Promise<Response> {
@@ -343,25 +343,25 @@ export class GameRoomDurableObject extends DurableObject {
     const player = this.roomState.players.find((candidate) => candidate.id === body.playerId);
     if (!player) return json({ error: "Invalid player" }, 403);
 
-    const allowedPanels = this.allowedPanelsForPlayer(player);
-    if (!allowedPanels.includes(body.panelId) && !player.isGameMaster) {
-      return json({ error: "Panel access denied", panelId: body.panelId }, 403);
+    const allowedWidgets = this.allowedWidgetsForPlayer(player);
+    if (!allowedWidgets.includes(body.widgetId) && !player.isGameMaster) {
+      return json({ error: "Widget access denied", widgetId: body.widgetId }, 403);
     }
 
-    if (this.isPanelLocked(body.panelId)) {
-      return json({ error: "Panel is locked", panelId: body.panelId }, 409);
+    if (this.isWidgetLocked(body.widgetId)) {
+      return json({ error: "Widget is locked", widgetId: body.widgetId }, 409);
     }
 
     const engine = getModeEngine(this.roomState.mode);
-    const expectedPanel = engine.getPanelForAction(body.actionType);
-    if (expectedPanel && expectedPanel !== body.panelId && !player.isGameMaster) {
-      return json({ error: "Action does not belong to provided panel", expectedPanel }, 409);
+    const expectedWidget = engine.getWidgetForAction(body.actionType);
+    if (expectedWidget && expectedWidget !== body.widgetId && !player.isGameMaster) {
+      return json({ error: "Action does not belong to provided widget", expectedWidget }, 409);
     }
 
     const action: PlayerAction = {
       type: body.actionType,
       playerId: body.playerId,
-      panelId: body.panelId,
+      widgetId: body.widgetId,
       payload: body.payload,
     };
 
@@ -385,7 +385,7 @@ export class GameRoomDurableObject extends DurableObject {
       type: "action",
       message: `${player.name} -> ${action.type}`,
       actorPlayerId: player.id,
-      panelId: action.panelId,
+      widgetId: action.widgetId,
       atEpochMs: now,
     });
 
@@ -542,7 +542,7 @@ export class GameRoomDurableObject extends DurableObject {
 
     player.role = body.role;
     const engine = getModeEngine(this.roomState.mode);
-    this.roomState.panelState.accessGrants[player.id] = engine.getDefaultAccessTemplate(player.role);
+    this.roomState.widgetState.accessGrants[player.id] = engine.getDefaultWidgetAccessTemplate(player.role);
 
     const now = Date.now();
     this.roomState.timeline.push(newTimelineEvent("system", `${player.name} assigned role ${player.role}`, now));
@@ -559,29 +559,29 @@ export class GameRoomDurableObject extends DurableObject {
     return json({ state: this.toRoomView() });
   }
 
-  private async handlePanelAccess(request: Request): Promise<Response> {
+  private async handleWidgetAccess(request: Request): Promise<Response> {
     if (!this.roomState) return json({ error: "Room is not initialized" }, 404);
 
-    const body = await parseJson<SetPanelAccessRequest>(request);
+    const body = await parseJson<SetWidgetAccessRequest>(request);
     if (!this.ensureGmSecret(body.gmSecret)) return json({ error: "Unauthorized" }, 403);
 
     const player = this.roomState.players.find((candidate) => candidate.id === body.playerId);
     if (!player) return json({ error: "Unknown player" }, 404);
 
-    const existing = new Set(this.roomState.panelState.accessGrants[player.id] ?? []);
+    const existing = new Set(this.roomState.widgetState.accessGrants[player.id] ?? []);
     if (body.granted) {
-      existing.add(body.panelId);
+      existing.add(body.widgetId);
     } else {
-      existing.delete(body.panelId);
+      existing.delete(body.widgetId);
     }
-    this.roomState.panelState.accessGrants[player.id] = [...existing];
+    this.roomState.widgetState.accessGrants[player.id] = [...existing];
 
     const now = Date.now();
     this.addDebriefEvent({
-      type: "panel_access",
-      message: `${body.granted ? "Granted" : "Revoked"} ${body.panelId} for ${player.name}.`,
+      type: "widget_access",
+      message: `${body.granted ? "Granted" : "Revoked"} ${body.widgetId} for ${player.name}.`,
       actorPlayerId: player.id,
-      panelId: body.panelId,
+      widgetId: body.widgetId,
       atEpochMs: now,
     });
 
@@ -590,13 +590,13 @@ export class GameRoomDurableObject extends DurableObject {
     return json({ state: this.toRoomView() });
   }
 
-  private async handlePanelLock(request: Request): Promise<Response> {
+  private async handleWidgetLock(request: Request): Promise<Response> {
     if (!this.roomState) return json({ error: "Room is not initialized" }, 404);
 
-    const body = await parseJson<SetPanelLockRequest>(request);
+    const body = await parseJson<SetWidgetLockRequest>(request);
     if (!this.ensureGmSecret(body.gmSecret)) return json({ error: "Unauthorized" }, 403);
 
-    this.roomState.panelState.panelLocks[body.panelId] = {
+    this.roomState.widgetState.widgetLocks[body.widgetId] = {
       locked: body.locked,
       reason: body.reason,
       atEpochMs: Date.now(),
@@ -604,9 +604,9 @@ export class GameRoomDurableObject extends DurableObject {
 
     const now = Date.now();
     this.addDebriefEvent({
-      type: "panel_lock",
-      message: `${body.locked ? "Locked" : "Unlocked"} panel ${body.panelId}.`,
-      panelId: body.panelId,
+      type: "widget_lock",
+      message: `${body.locked ? "Locked" : "Unlocked"} widget ${body.widgetId}.`,
+      widgetId: body.widgetId,
       atEpochMs: now,
     });
 
@@ -625,7 +625,7 @@ export class GameRoomDurableObject extends DurableObject {
       return json({ error: "Role not allowed for this mode" }, 409);
     }
 
-    this.roomState.panelState.gmSimulatedRole = body.role;
+    this.roomState.widgetState.gmSimulatedRole = body.role;
 
     await this.persist();
     await this.broadcastSnapshot();
@@ -737,15 +737,15 @@ export class GameRoomDurableObject extends DurableObject {
     const player = this.roomState.players.find((candidate) => candidate.id === playerId);
     const roleOptions = rolesForMode(this.roomState.mode);
     const effectiveRole = player?.isGameMaster
-      ? this.roomState.panelState.gmSimulatedRole ?? player.role
+      ? this.roomState.widgetState.gmSimulatedRole ?? player.role
       : player?.role ?? "Observer";
 
     const engine = getModeEngine(this.roomState.mode);
-    const panelDeck = engine.buildPanelDeck({
+    const widgetDeck = engine.buildWidgetDeck({
       state: this.roomState,
       viewer: player,
       effectiveRole,
-      panelState: this.roomState.panelState,
+      widgetState: this.roomState.widgetState,
       roleOptions,
       debriefMetrics: this.computeDebriefMetrics(),
     });
@@ -767,7 +767,7 @@ export class GameRoomDurableObject extends DurableObject {
       objectives: this.roomState.objectives,
       timeline: this.roomState.timeline,
       publicSummary: this.roomState.publicSummary,
-      panelDeck,
+      widgetDeck,
       debrief: {
         events: debriefEvents,
         metrics: this.computeDebriefMetrics(),
@@ -781,7 +781,7 @@ export class GameRoomDurableObject extends DurableObject {
     message: string;
     atEpochMs: number;
     actorPlayerId?: string;
-    panelId?: ScenePanelId;
+    widgetId?: WidgetId;
   }): void {
     if (!this.roomState) {
       return;
@@ -793,7 +793,7 @@ export class GameRoomDurableObject extends DurableObject {
       message: input.message,
       atEpochMs: input.atEpochMs,
       actorPlayerId: input.actorPlayerId,
-      panelId: input.panelId,
+      widgetId: input.widgetId,
       score: this.roomState.score,
       pressure: this.roomState.pressure,
     });

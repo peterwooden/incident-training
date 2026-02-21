@@ -9,8 +9,8 @@ export function BombCoordinationBoardPanel({ payload }: BombCoordinationBoardPan
   const { pulse } = useAmbientMotionClock({ loopMs: 2400, paused: false });
 
   return (
-    <section className="scene-panel coordination-board-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget coordination-board-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Coordination Board</h3>
         <div className="chip-strip">
           <span className="chip">{payload.stageId}</span>
@@ -19,7 +19,7 @@ export function BombCoordinationBoardPanel({ payload }: BombCoordinationBoardPan
         </div>
       </header>
 
-      <p className="panel-annotation">{payload.currentDirective}</p>
+      <p className="widget-annotation">{payload.currentDirective}</p>
 
       <LayeredScene className="visual-stage coordination-stage cinematic-depth" depthPx={4} perspectivePx={760}>
         <ShadowCaster blurPx={18} opacity={0.35} offsetY={7} />

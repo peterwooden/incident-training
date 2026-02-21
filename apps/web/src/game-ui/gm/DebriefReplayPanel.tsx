@@ -12,8 +12,8 @@ export function DebriefReplayPanel({ payload, index, onIndexChange }: DebriefRep
   const maxPressure = Math.max(1, ...payload.events.map((entry) => entry.pressure));
 
   return (
-    <section className="scene-panel debrief-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget debrief-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Debrief Replay</h3>
         <div className="chip-strip">
           <span className="chip">Exec {payload.metrics.executionAccuracy}%</span>

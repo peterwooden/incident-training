@@ -79,8 +79,8 @@ async function run() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         playerId: joined.playerId,
-        actionType: "bomb_stabilize_panel",
-        panelId: "device_console",
+        actionType: "bomb_stabilize_widget",
+        widgetId: "device_console",
       }),
     });
     if (!actionResp.ok) throw new Error(`action failed: ${actionResp.status}`);
@@ -91,7 +91,7 @@ async function run() {
       body: JSON.stringify({
         playerId: created.gmPlayerId,
         actionType: "gm_fsm_transition",
-        panelId: "fsm_editor",
+        widgetId: "fsm_editor",
         payload: { transitionId: "bomb-stage:symbols" },
       }),
     });
@@ -104,10 +104,10 @@ async function run() {
     if (statePayload.state.mode !== "bomb-defusal") {
       throw new Error("expected bomb-defusal mode");
     }
-    if (!statePayload.state.panelDeck) {
+    if (!statePayload.state.widgetDeck) {
       throw new Error("expected panel deck in room view");
     }
-    const devicePanel = statePayload.state.panelDeck.panelsById.device_console;
+    const devicePanel = statePayload.state.widgetDeck.widgetsById.device_console;
     if (!devicePanel?.payload?.stageId) {
       throw new Error("expected staged bomb payload in device panel");
     }
@@ -165,7 +165,7 @@ async function run() {
     );
     if (!gmBushfireStateResp.ok) throw new Error("failed to fetch bushfire gm state");
     const gmBushfireState = await gmBushfireStateResp.json();
-    const promptDeck = gmBushfireState.state.panelDeck?.panelsById?.gm_prompt_deck?.payload;
+    const promptDeck = gmBushfireState.state.widgetDeck?.widgetsById?.gm_prompt_deck?.payload;
     if (!promptDeck?.releasableCardIds?.length) {
       throw new Error("expected releasable prompt cards for GM");
     }
@@ -177,7 +177,7 @@ async function run() {
       body: JSON.stringify({
         playerId: bushfireCreated.gmPlayerId,
         actionType: "gm_release_prompt",
-        panelId: "gm_prompt_deck",
+        widgetId: "gm_prompt_deck",
         payload: { cardId },
       }),
     });
@@ -187,19 +187,19 @@ async function run() {
       `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(weatherPlayer.playerId)}`,
     );
     const weatherState = await weatherStateResp.json();
-    const weatherPrompts = weatherState.state.panelDeck?.panelsById?.role_briefing?.payload?.prompts ?? [];
+    const weatherPrompts = weatherState.state.widgetDeck?.widgetsById?.role_briefing?.payload?.prompts ?? [];
 
     const fireStateResp = await fetch(
       `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(firePlayer.playerId)}`,
     );
     const fireState = await fireStateResp.json();
-    const firePrompts = fireState.state.panelDeck?.panelsById?.role_briefing?.payload?.prompts ?? [];
+    const firePrompts = fireState.state.widgetDeck?.widgetsById?.role_briefing?.payload?.prompts ?? [];
 
     const radioStateResp = await fetch(
       `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(radioPlayer.playerId)}`,
     );
     const radioState = await radioStateResp.json();
-    const radioPrompts = radioState.state.panelDeck?.panelsById?.role_briefing?.payload?.prompts ?? [];
+    const radioPrompts = radioState.state.widgetDeck?.widgetsById?.role_briefing?.payload?.prompts ?? [];
 
     const visibleCount =
       [weatherPrompts, firePrompts, radioPrompts]
@@ -216,7 +216,7 @@ async function run() {
       body: JSON.stringify({
         playerId: bushfireCreated.gmPlayerId,
         actionType: "gm_fsm_transition",
-        panelId: "fsm_editor",
+        widgetId: "fsm_editor",
         payload: { transitionId: "bushfire-phase:phase_4_catastrophe" },
       }),
     });
@@ -228,7 +228,7 @@ async function run() {
       body: JSON.stringify({
         playerId: bushfireCreated.gmPlayerId,
         actionType: "gm_fsm_transition",
-        panelId: "fsm_editor",
+        widgetId: "fsm_editor",
         payload: { transitionId: "bushfire-state:terminal_failed" },
       }),
     });
@@ -246,7 +246,7 @@ async function run() {
       `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(bushfireCreated.gmPlayerId)}`,
     );
     const gmTerminalState = await gmTerminalStateResp.json();
-    const currentNodeId = gmTerminalState.state.panelDeck?.panelsById?.fsm_editor?.payload?.currentNodeId;
+    const currentNodeId = gmTerminalState.state.widgetDeck?.widgetsById?.fsm_editor?.payload?.currentNodeId;
     if (currentNodeId !== "terminal_failed") {
       throw new Error("expected FSM current node terminal_failed for GM view");
     }

@@ -44,8 +44,8 @@ export function BombRulebookPanel({
   const onPrevPage = () => onChangePage(Math.max(0, safeIndex - 1));
 
   return (
-    <section className="scene-panel bomb-rulebook-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget bomb-rulebook-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Manual Flipbook</h3>
         <div className="chip-strip">
           <span className="chip">{payload.stageTitle}</span>

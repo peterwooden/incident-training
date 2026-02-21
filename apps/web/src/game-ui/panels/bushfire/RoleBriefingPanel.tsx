@@ -11,8 +11,8 @@ export function RoleBriefingPanel({ payload, locked, onAcknowledge }: RoleBriefi
   const { pulse } = useAmbientMotionClock({ loopMs: 2200, paused: false });
 
   return (
-    <section className="scene-panel role-briefing-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget role-briefing-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Role Briefing</h3>
         <div className="chip-strip">
           <span className="chip">{payload.roleLabel}</span>

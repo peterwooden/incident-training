@@ -10,7 +10,7 @@ This repo treats prompts as source code and generated images as compiled artifac
 
 - Trusted providers only: OpenAI and Google Gemini official endpoints.
 - Your own account keys: no third-party relay service.
-- Works with current `SVG+Canvas` scene panel architecture (generate textures/sprites, then compose in UI).
+- Works with current `SVG+Canvas` widget architecture (generate textures/sprites, then compose in UI).
 
 ## Prerequisites
 
@@ -71,7 +71,7 @@ Global defaults are under `defaults`.
 
 1. Edit only the target prompt in `scripts/asset-prompts.json`.
 2. Rebuild only that asset ID via `npm run asset:build -- --asset <id>`.
-3. Review panel visuals.
+3. Review widget visuals.
 4. Commit source prompt + compiled artifact together.
 
 ## Notes on `llm` CLI (Simon Willison)

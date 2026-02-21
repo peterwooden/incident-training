@@ -9,8 +9,8 @@ export function PoliceOpsPanel({ payload }: PoliceOpsPanelProps) {
   const { pulse } = useAmbientMotionClock({ loopMs: 2300, paused: false });
 
   return (
-    <section className="scene-panel police-ops-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget police-ops-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Police Ops</h3>
         <div className="chip-strip">
           <span className="chip">evac {payload.evacuationZoneIds.length}</span>

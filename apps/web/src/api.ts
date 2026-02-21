@@ -6,8 +6,8 @@ import type {
   JoinRoomRequest,
   RoomView,
   SetGmSimulatedRoleRequest,
-  SetPanelAccessRequest,
-  SetPanelLockRequest,
+  SetWidgetAccessRequest,
+  SetWidgetLockRequest,
   StartGameRequest,
 } from "@incident/shared";
 
@@ -71,23 +71,23 @@ export async function assignRole(roomCode: string, body: AssignRoleRequest) {
   return resp.json() as Promise<{ state: RoomView }>;
 }
 
-export async function setPanelAccess(roomCode: string, body: SetPanelAccessRequest) {
-  const resp = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/panels/access`, {
+export async function setWidgetAccess(roomCode: string, body: SetWidgetAccessRequest) {
+  const resp = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/widgets/access`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`Set panel access failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`Set widget access failed: ${resp.status}`);
   return resp.json() as Promise<{ state: RoomView }>;
 }
 
-export async function setPanelLock(roomCode: string, body: SetPanelLockRequest) {
-  const resp = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/panels/lock`, {
+export async function setWidgetLock(roomCode: string, body: SetWidgetLockRequest) {
+  const resp = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/widgets/lock`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`Set panel lock failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`Set widget lock failed: ${resp.status}`);
   return resp.json() as Promise<{ state: RoomView }>;
 }
 

@@ -10,8 +10,8 @@ export function IncidentCommandPanel({ payload }: IncidentCommandPanelProps) {
   const { pulse } = useAmbientMotionClock({ loopMs: 2200, paused: false });
 
   return (
-    <section className="scene-panel incident-command-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget incident-command-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Incident Command</h3>
         <div className="chip-strip">
           <span className="chip good">contain {containment}%</span>

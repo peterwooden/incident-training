@@ -27,8 +27,8 @@ export function PublicInfoPanel({
   const { pulse } = useAmbientMotionClock({ loopMs: 1900, paused: false });
 
   return (
-    <section className="scene-panel public-info-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget public-info-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Public Info</h3>
         <div className="chip-strip">
           <span className="chip warning">anxiety {anxiety}%</span>

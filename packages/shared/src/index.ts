@@ -32,10 +32,10 @@ export interface TimelineEvent {
 export interface DebriefEvent {
   id: string;
   atEpochMs: number;
-  type: "action" | "tick" | "panel_access" | "panel_lock" | "role_assign" | "system";
+  type: "action" | "tick" | "widget_access" | "widget_lock" | "role_assign" | "system";
   message: string;
   actorPlayerId?: string;
-  panelId?: ScenePanelId;
+  widgetId?: WidgetId;
   score: number;
   pressure: number;
 }
@@ -57,7 +57,7 @@ export type PlayerActionType =
   | "gm_fsm_transition"
   | "bomb_cut_wire"
   | "bomb_press_symbol"
-  | "bomb_stabilize_panel"
+  | "bomb_stabilize_widget"
   | "bushfire_deploy_fire_crew"
   | "bushfire_drop_water"
   | "bushfire_set_roadblock"
@@ -186,7 +186,7 @@ export interface BushfirePromptCardState {
 
 export type ScenarioState = BombScenarioState | BushfireScenarioState;
 
-export type ScenePanelId =
+export type WidgetId =
   | "mission_hud"
   | "device_console"
   | "manual_rulebook"
@@ -204,15 +204,15 @@ export type ScenePanelId =
   | "fsm_editor"
   | "debrief_replay";
 
-export type ScenePanelKind = "shared" | "role-scoped" | "gm-only";
+export type WidgetKind = "shared" | "role-scoped" | "gm-only";
 
-export interface ScenePanelAccessRule {
-  id: ScenePanelId;
-  kind: ScenePanelKind;
+export interface WidgetAccessRule {
+  id: WidgetId;
+  kind: WidgetKind;
   defaultRoles: IncidentRole[];
 }
 
-export interface ScenePanelLockState {
+export interface WidgetLockState {
   locked: boolean;
   reason?: string;
   lockedByPlayerId?: string;
@@ -619,14 +619,14 @@ export interface GmPromptDeckPayload {
 
 export interface GmOrchestratorPayload {
   players: Player[];
-  accessByPlayer: Record<string, ScenePanelId[]>;
-  panelLocks: Partial<Record<ScenePanelId, ScenePanelLockState>>;
+  accessByPlayer: Record<string, WidgetId[]>;
+  widgetLocks: Partial<Record<WidgetId, WidgetLockState>>;
   simulatedRole?: IncidentRole;
   roleOptions: IncidentRole[];
   cameraTargets: Array<{ id: string; label: string; x: number; y: number; urgency: number }>;
   riskHotspots: Array<{ id: string; x: number; y: number; severity: number; label: string }>;
   drawerSections: Array<{ id: "roles" | "access" | "locks" | "simulate"; title: string }>;
-  selectionContext?: { selectedPlayerId?: string; selectedPanelId?: ScenePanelId };
+  selectionContext?: { selectedPlayerId?: string; selectedWidgetId?: WidgetId };
 }
 
 export interface FsmNodeView {
@@ -659,7 +659,7 @@ export interface DebriefReplayPayload {
   events: DebriefEvent[];
 }
 
-export interface ScenePanelPayloadMap {
+export interface WidgetPayloadMap {
   mission_hud: MissionHudPayload;
   device_console: BombDeviceConsolePayload;
   manual_rulebook: BombRulebookPayload;
@@ -678,44 +678,44 @@ export interface ScenePanelPayloadMap {
   debrief_replay: DebriefReplayPayload;
 }
 
-export type LiveGameplayPanelId = Exclude<ScenePanelId, "gm_orchestrator" | "gm_prompt_deck" | "fsm_editor" | "debrief_replay">;
-export type OverlayTextLevelForPanel<K extends ScenePanelId> = K extends LiveGameplayPanelId
+export type LiveGameplayWidgetId = Exclude<WidgetId, "gm_orchestrator" | "gm_prompt_deck" | "fsm_editor" | "debrief_replay">;
+export type OverlayTextLevelForWidget<K extends WidgetId> = K extends LiveGameplayWidgetId
   ? Exclude<OverlayTextLevel, "dense">
   : OverlayTextLevel;
 
-export interface ScenePanelView<K extends ScenePanelId = ScenePanelId> {
+export interface WidgetView<K extends WidgetId = WidgetId> {
   id: K;
-  kind: ScenePanelKind;
+  kind: WidgetKind;
   title: string;
   subtitle?: string;
   priority: number;
   visualPriority: number;
   renderMode: RenderMode;
   interactionMode: InteractionMode;
-  overlayTextLevel: OverlayTextLevelForPanel<K>;
+  overlayTextLevel: OverlayTextLevelForWidget<K>;
   fxProfile: FxProfile;
   ambientLoopMs: number;
   hoverDepthPx: number;
   materialPreset: MaterialPreset;
-  locked: ScenePanelLockState;
+  locked: WidgetLockState;
   audioCue?: AudioCue;
-  payload: ScenePanelPayloadMap[K];
+  payload: WidgetPayloadMap[K];
 }
 
-export type AnyScenePanelView = {
-  [K in ScenePanelId]: ScenePanelView<K>;
-}[ScenePanelId];
+export type AnyWidgetView = {
+  [K in WidgetId]: WidgetView<K>;
+}[WidgetId];
 
-export interface PanelDeckView {
-  availablePanelIds: ScenePanelId[];
-  panelsById: Partial<{ [K in ScenePanelId]: ScenePanelView<K> }>;
-  defaultOrder: ScenePanelId[];
+export interface WidgetDeckView {
+  availableWidgetIds: WidgetId[];
+  widgetsById: Partial<{ [K in WidgetId]: WidgetView<K> }>;
+  defaultOrder: WidgetId[];
   gmSimulatedRole?: IncidentRole;
 }
 
-export interface PanelState {
-  accessGrants: Record<string, ScenePanelId[]>;
-  panelLocks: Partial<Record<ScenePanelId, ScenePanelLockState>>;
+export interface WidgetState {
+  accessGrants: Record<string, WidgetId[]>;
+  widgetLocks: Partial<Record<WidgetId, WidgetLockState>>;
   gmSimulatedRole?: IncidentRole;
 }
 
@@ -734,7 +734,7 @@ export interface RoomState {
   timeline: TimelineEvent[];
   publicSummary: string;
   scenario: ScenarioState;
-  panelState: PanelState;
+  widgetState: WidgetState;
   debriefLog: DebriefEvent[];
   seed: number;
   rngCursor: number;
@@ -754,7 +754,7 @@ export interface RoomView {
   objectives: Objective[];
   timeline: TimelineEvent[];
   publicSummary: string;
-  panelDeck: PanelDeckView;
+  widgetDeck: WidgetDeckView;
   debrief: DebriefView;
   yourPlayerId?: string;
 }
@@ -762,7 +762,7 @@ export interface RoomView {
 export interface PlayerAction {
   type: PlayerActionType;
   playerId: string;
-  panelId: ScenePanelId;
+  widgetId: WidgetId;
   payload?: Record<string, string | number | boolean>;
 }
 
@@ -791,7 +791,7 @@ export interface StartGameRequest {
 export interface ActionRequest {
   playerId: string;
   actionType: PlayerActionType;
-  panelId: ScenePanelId;
+  widgetId: WidgetId;
   payload?: Record<string, string | number | boolean>;
 }
 
@@ -801,16 +801,16 @@ export interface AssignRoleRequest {
   role: IncidentRole;
 }
 
-export interface SetPanelAccessRequest {
+export interface SetWidgetAccessRequest {
   gmSecret: string;
   playerId: string;
-  panelId: ScenePanelId;
+  widgetId: WidgetId;
   granted: boolean;
 }
 
-export interface SetPanelLockRequest {
+export interface SetWidgetLockRequest {
   gmSecret: string;
-  panelId: ScenePanelId;
+  widgetId: WidgetId;
   locked: boolean;
   reason?: string;
 }

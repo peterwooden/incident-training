@@ -5,14 +5,14 @@ import type {
   BombWire,
   IncidentRole,
   ManualSpread,
-  PanelDeckView,
+  WidgetDeckView,
   PlayerActionType,
   Point2D,
   PlayerAction,
   RoomState,
-  ScenePanelAccessRule,
-  ScenePanelId,
-  ScenePanelView,
+  WidgetAccessRule,
+  WidgetId,
+  WidgetView,
 } from "@incident/shared";
 import type { BombModule, GameModeEngine, ModeMutation, SeededRandom } from "./types";
 import { newTimelineEvent } from "./helpers";
@@ -23,7 +23,7 @@ const MEMORY_DIGITS = ["1", "2", "3", "4"];
 const MODULE_QUEUE: BombStageId[] = ["wires", "symbols", "memory"];
 const STAGE_TRANSITION_MS = 4_500;
 
-const PANEL_DEFINITIONS: ScenePanelAccessRule[] = [
+const PANEL_DEFINITIONS: WidgetAccessRule[] = [
   { id: "mission_hud", kind: "shared", defaultRoles: ["Observer"] },
   { id: "device_console", kind: "role-scoped", defaultRoles: ["Device Specialist"] },
   { id: "manual_rulebook", kind: "role-scoped", defaultRoles: ["Manual Analyst"] },
@@ -34,7 +34,7 @@ const PANEL_DEFINITIONS: ScenePanelAccessRule[] = [
   { id: "debrief_replay", kind: "gm-only", defaultRoles: [] },
 ];
 
-const DEFAULT_BY_ROLE: Record<IncidentRole, ScenePanelId[]> = {
+const DEFAULT_BY_ROLE: Record<IncidentRole, WidgetId[]> = {
   "Lead Coordinator": ["mission_hud", "coordination_board"],
   "Device Specialist": ["mission_hud", "device_console"],
   "Manual Analyst": ["mission_hud", "manual_rulebook"],
@@ -738,16 +738,16 @@ export class BombDefusalMode implements GameModeEngine {
     return createScenario(rng);
   }
 
-  getPanelDefinitions(): ScenePanelAccessRule[] {
+  getWidgetDefinitions(): WidgetAccessRule[] {
     return PANEL_DEFINITIONS;
   }
 
-  getDefaultAccessTemplate(role: IncidentRole): ScenePanelId[] {
+  getDefaultWidgetAccessTemplate(role: IncidentRole): WidgetId[] {
     return DEFAULT_BY_ROLE[role] ?? ["mission_hud"];
   }
 
-  getPanelForAction(actionType: PlayerAction["type"]): ScenePanelId | undefined {
-    const map: Partial<Record<PlayerAction["type"], ScenePanelId>> = {
+  getWidgetForAction(actionType: PlayerAction["type"]): WidgetId | undefined {
+    const map: Partial<Record<PlayerAction["type"], WidgetId>> = {
       bomb_cut_wire: "device_console",
       bomb_press_symbol: "device_console",
       assign_role: "gm_orchestrator",
@@ -771,7 +771,7 @@ export class BombDefusalMode implements GameModeEngine {
     let scoreDelta = 0;
     let summary = "Team coordinating under pressure.";
 
-    if (action.type === "bomb_stabilize_panel") {
+    if (action.type === "bomb_stabilize_widget") {
       if (next.stageStatus !== "active") {
         pressureDelta += 1;
         summary = "Stabilizer ignored during stage intermission.";
@@ -912,11 +912,11 @@ export class BombDefusalMode implements GameModeEngine {
     };
   }
 
-  buildPanelDeck(args: {
+  buildWidgetDeck(args: {
     state: RoomState;
     viewer?: { id: string; role: IncidentRole; isGameMaster: boolean };
     effectiveRole: IncidentRole;
-    panelState: RoomState["panelState"];
+    widgetState: RoomState["widgetState"];
     roleOptions: IncidentRole[];
     debriefMetrics: {
       executionAccuracy: number;
@@ -924,7 +924,7 @@ export class BombDefusalMode implements GameModeEngine {
       communicationDiscipline: number;
       overall: number;
     };
-  }): PanelDeckView {
+  }): WidgetDeckView {
     const scenario = args.state.scenario;
     if (scenario.type !== "bomb-defusal") {
       throw new Error("invalid scenario");
@@ -932,17 +932,17 @@ export class BombDefusalMode implements GameModeEngine {
 
     const viewer = args.viewer;
     const isGm = Boolean(viewer?.isGameMaster);
-    const granted = viewer ? args.panelState.accessGrants[viewer.id] ?? this.getDefaultAccessTemplate(viewer.role) : [];
-    const availablePanelIds = isGm
+    const granted = viewer ? args.widgetState.accessGrants[viewer.id] ?? this.getDefaultWidgetAccessTemplate(viewer.role) : [];
+    const availableWidgetIds = isGm
       ? PANEL_DEFINITIONS.map((panel) => panel.id)
-      : granted.filter((panelId) => panelId !== "gm_orchestrator" && panelId !== "fsm_editor" && panelId !== "debrief_replay");
+      : granted.filter((widgetId) => widgetId !== "gm_orchestrator" && widgetId !== "fsm_editor" && widgetId !== "debrief_replay");
 
-    const panelMap: PanelDeckView["panelsById"] = {};
+    const panelMap: WidgetDeckView["widgetsById"] = {};
 
-    const withLock = (id: ScenePanelId) => args.panelState.panelLocks[id] ?? { locked: false };
+    const withLock = (id: WidgetId) => args.widgetState.widgetLocks[id] ?? { locked: false };
 
-    const pushPanel = <K extends ScenePanelId>(panel: ScenePanelView<K>): void => {
-      if (availablePanelIds.includes(panel.id)) {
+    const pushPanel = <K extends WidgetId>(panel: WidgetView<K>): void => {
+      if (availableWidgetIds.includes(panel.id)) {
         panelMap[panel.id] = panel as never;
       }
     };
@@ -1217,9 +1217,9 @@ export class BombDefusalMode implements GameModeEngine {
         locked: withLock("gm_orchestrator"),
         payload: {
           players: args.state.players,
-          accessByPlayer: args.panelState.accessGrants,
-          panelLocks: args.panelState.panelLocks,
-          simulatedRole: args.panelState.gmSimulatedRole,
+          accessByPlayer: args.widgetState.accessGrants,
+          widgetLocks: args.widgetState.widgetLocks,
+          simulatedRole: args.widgetState.gmSimulatedRole,
           roleOptions: args.roleOptions,
           cameraTargets: [
             { id: "ct_device", label: "Device Core", x: 0.36, y: 0.44, urgency: 0.82 },
@@ -1286,10 +1286,10 @@ export class BombDefusalMode implements GameModeEngine {
       .map((panel) => panel.id);
 
     return {
-      availablePanelIds: defaultOrder,
-      panelsById: panelMap,
+      availableWidgetIds: defaultOrder,
+      widgetsById: panelMap,
       defaultOrder,
-      gmSimulatedRole: args.panelState.gmSimulatedRole,
+      gmSimulatedRole: args.widgetState.gmSimulatedRole,
     };
   }
 }

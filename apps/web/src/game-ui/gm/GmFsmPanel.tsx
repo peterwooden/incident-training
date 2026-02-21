@@ -10,8 +10,8 @@ export function GmFsmPanel({ payload, locked, onTransition }: GmFsmPanelProps) {
   const nodesById = new Map(payload.nodes.map((node) => [node.id, node]));
 
   return (
-    <section className="scene-panel gm-fsm-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget gm-fsm-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>FSM Editor</h3>
         <div className="chip-strip">
           <span className="chip">{payload.mode}</span>

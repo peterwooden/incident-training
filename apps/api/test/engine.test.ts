@@ -24,9 +24,9 @@ function baseState(mode: RoomState["mode"], role: IncidentRole): RoomState {
     timeline: [],
     publicSummary: engine.initSummary(),
     scenario: engine.initScenario(rng),
-    panelState: {
-      accessGrants: { p1: engine.getDefaultAccessTemplate(role) },
-      panelLocks: {},
+    widgetState: {
+      accessGrants: { p1: engine.getDefaultWidgetAccessTemplate(role) },
+      widgetLocks: {},
     },
     debriefLog: [],
     seed: 12345,
@@ -82,17 +82,17 @@ describe("BombDefusalMode", () => {
   it("builds panel deck for manual analyst", () => {
     const mode = new BombDefusalMode();
     const state = baseState("bomb-defusal", "Manual Analyst");
-    const deck = mode.buildPanelDeck({
+    const deck = mode.buildWidgetDeck({
       state,
       viewer: state.players[0],
       effectiveRole: "Manual Analyst",
-      panelState: state.panelState,
+      widgetState: state.widgetState,
       roleOptions: ["Lead Coordinator", "Manual Analyst", "Device Specialist", "Safety Officer", "Observer"],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
 
-    expect(deck.availablePanelIds).toContain("manual_rulebook");
-    expect(deck.availablePanelIds).not.toContain("device_console");
+    expect(deck.availableWidgetIds).toContain("manual_rulebook");
+    expect(deck.availableWidgetIds).not.toContain("device_console");
   });
 
   it("emits deterministic cinematic bomb payload", () => {
@@ -100,25 +100,25 @@ describe("BombDefusalMode", () => {
     const stateA = baseState("bomb-defusal", "Device Specialist");
     const stateB = baseState("bomb-defusal", "Device Specialist");
 
-    const deckA = mode.buildPanelDeck({
+    const deckA = mode.buildWidgetDeck({
       state: stateA,
       viewer: stateA.players[0],
       effectiveRole: "Device Specialist",
-      panelState: stateA.panelState,
+      widgetState: stateA.widgetState,
       roleOptions: ["Lead Coordinator", "Manual Analyst", "Device Specialist", "Safety Officer", "Observer"],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
-    const deckB = mode.buildPanelDeck({
+    const deckB = mode.buildWidgetDeck({
       state: stateB,
       viewer: stateB.players[0],
       effectiveRole: "Device Specialist",
-      panelState: stateB.panelState,
+      widgetState: stateB.widgetState,
       roleOptions: ["Lead Coordinator", "Manual Analyst", "Device Specialist", "Safety Officer", "Observer"],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
 
-    const payloadA = deckA.panelsById.device_console?.payload;
-    const payloadB = deckB.panelsById.device_console?.payload;
+    const payloadA = deckA.widgetsById.device_console?.payload;
+    const payloadB = deckB.widgetsById.device_console?.payload;
 
     expect(payloadA).toBeDefined();
     expect(payloadA && "components" in payloadA).toBe(true);
@@ -142,7 +142,7 @@ describe("BombDefusalMode", () => {
     for (const wireId of criticalOrder) {
       const mutation = mode.onAction(
         state,
-        { type: "bomb_cut_wire", playerId: "p1", panelId: "device_console", payload: { wireId } },
+        { type: "bomb_cut_wire", playerId: "p1", widgetId: "device_console", payload: { wireId } },
         now,
       );
       state = applyMutation(state, mutation);
@@ -164,7 +164,7 @@ describe("BombDefusalMode", () => {
     for (const symbol of targetSymbols) {
       const mutation = mode.onAction(
         state,
-        { type: "bomb_press_symbol", playerId: "p1", panelId: "device_console", payload: { symbol } },
+        { type: "bomb_press_symbol", playerId: "p1", widgetId: "device_console", payload: { symbol } },
         now,
       );
       state = applyMutation(state, mutation);
@@ -187,7 +187,7 @@ describe("BombDefusalMode", () => {
       const expected = String(((cue + index) % 4) + 1);
       const mutation = mode.onAction(
         state,
-        { type: "bomb_press_symbol", playerId: "p1", panelId: "device_console", payload: { symbol: expected } },
+        { type: "bomb_press_symbol", playerId: "p1", widgetId: "device_console", payload: { symbol: expected } },
         now,
       );
       state = applyMutation(state, mutation);
@@ -219,7 +219,7 @@ describe("BushfireCommandMode", () => {
       {
         type: "bushfire_deploy_fire_crew",
         playerId: "p1",
-        panelId: "fire_ops_console",
+        widgetId: "fire_ops_console",
         payload: { cellId: firstCell?.id ?? "cell_1" },
       },
       Date.now(),
@@ -234,11 +234,11 @@ describe("BushfireCommandMode", () => {
     const stateA = baseState("bushfire-command", "Fire Operations SME");
     const stateB = baseState("bushfire-command", "Fire Operations SME");
 
-    const deckA = mode.buildPanelDeck({
+    const deckA = mode.buildWidgetDeck({
       state: stateA,
       viewer: stateA.players[0],
       effectiveRole: "Fire Operations SME",
-      panelState: stateA.panelState,
+      widgetState: stateA.widgetState,
       roleOptions: [
         "Incident Controller",
         "Fire Operations SME",
@@ -249,11 +249,11 @@ describe("BushfireCommandMode", () => {
       ],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
-    const deckB = mode.buildPanelDeck({
+    const deckB = mode.buildWidgetDeck({
       state: stateB,
       viewer: stateB.players[0],
       effectiveRole: "Fire Operations SME",
-      panelState: stateB.panelState,
+      widgetState: stateB.widgetState,
       roleOptions: [
         "Incident Controller",
         "Fire Operations SME",
@@ -265,8 +265,8 @@ describe("BushfireCommandMode", () => {
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
 
-    const payloadA = deckA.panelsById.town_map?.payload;
-    const payloadB = deckB.panelsById.town_map?.payload;
+    const payloadA = deckA.widgetsById.town_map?.payload;
+    const payloadB = deckB.widgetsById.town_map?.payload;
     expect(payloadA).toBeDefined();
     expect(payloadA && "terrainLayers" in payloadA).toBe(true);
     expect(payloadA && "roadGraph" in payloadA).toBe(true);
@@ -343,13 +343,13 @@ describe("BushfireCommandMode", () => {
     let state: RoomState = {
       ...base,
       players: [gm, met, fire],
-      panelState: {
+      widgetState: {
         accessGrants: {
-          gm: mode.getPanelDefinitions().map((panel) => panel.id),
-          met: mode.getDefaultAccessTemplate("Meteorologist"),
-          fire: mode.getDefaultAccessTemplate("Fire Operations SME"),
+          gm: mode.getWidgetDefinitions().map((panel) => panel.id),
+          met: mode.getDefaultWidgetAccessTemplate("Meteorologist"),
+          fire: mode.getDefaultWidgetAccessTemplate("Fire Operations SME"),
         },
-        panelLocks: {},
+        widgetLocks: {},
       },
     };
 
@@ -360,63 +360,63 @@ describe("BushfireCommandMode", () => {
         {
           type: "gm_release_prompt",
           playerId: "gm",
-          panelId: "gm_prompt_deck",
+          widgetId: "gm_prompt_deck",
           payload: { cardId: "p1_radio_rumor" },
         },
         Date.now(),
       ),
     );
 
-    const metDeck = mode.buildPanelDeck({
+    const metDeck = mode.buildWidgetDeck({
       state,
       viewer: met,
       effectiveRole: met.role,
-      panelState: state.panelState,
+      widgetState: state.widgetState,
       roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Meteorologist", "Observer"],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
 
-    const fireDeck = mode.buildPanelDeck({
+    const fireDeck = mode.buildWidgetDeck({
       state,
       viewer: fire,
       effectiveRole: fire.role,
-      panelState: state.panelState,
+      widgetState: state.widgetState,
       roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Meteorologist", "Observer"],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
 
-    const metPrompts = (metDeck.panelsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
-    const firePrompts = (fireDeck.panelsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
+    const metPrompts = (metDeck.widgetsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
+    const firePrompts = (fireDeck.widgetsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
 
     expect(metPrompts.map((prompt) => prompt.id)).not.toContain("p1_radio_rumor");
     expect(firePrompts.map((prompt) => prompt.id)).not.toContain("p1_radio_rumor");
 
     const pio = { id: "pio", name: "PIO", role: "Public Information Officer" as const, isGameMaster: false };
-    const pioDeck = mode.buildPanelDeck({
+    const pioDeck = mode.buildWidgetDeck({
       state: {
         ...state,
         players: [...state.players, pio],
-        panelState: {
-          ...state.panelState,
+        widgetState: {
+          ...state.widgetState,
           accessGrants: {
-            ...state.panelState.accessGrants,
-            pio: mode.getDefaultAccessTemplate("Public Information Officer"),
+            ...state.widgetState.accessGrants,
+            pio: mode.getDefaultWidgetAccessTemplate("Public Information Officer"),
           },
         },
       },
       viewer: pio,
       effectiveRole: pio.role,
-      panelState: {
-        ...state.panelState,
+      widgetState: {
+        ...state.widgetState,
         accessGrants: {
-          ...state.panelState.accessGrants,
-          pio: mode.getDefaultAccessTemplate("Public Information Officer"),
+          ...state.widgetState.accessGrants,
+          pio: mode.getDefaultWidgetAccessTemplate("Public Information Officer"),
         },
       },
       roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Meteorologist", "Observer"],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
-    const pioPrompts = (pioDeck.panelsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
+    const pioPrompts = (pioDeck.widgetsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
     expect(pioPrompts.map((prompt) => prompt.id)).toContain("p1_radio_rumor");
   });
 });

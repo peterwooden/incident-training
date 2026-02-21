@@ -192,8 +192,8 @@ export function BushfireMapPanel({
   const windAngle = Math.atan2(payload.windVector.dy, payload.windVector.dx);
 
   return (
-    <section className="scene-panel bushfire-map-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget bushfire-map-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>The Valley Firefront</h3>
         <div className="chip-strip">
           <span className="chip warning">contain {payload.containment}%</span>

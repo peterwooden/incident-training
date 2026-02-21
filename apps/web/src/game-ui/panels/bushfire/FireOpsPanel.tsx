@@ -10,8 +10,8 @@ export function FireOpsPanel({ payload }: FireOpsPanelProps) {
   const { pulse } = useAmbientMotionClock({ loopMs: 2100, paused: false });
 
   return (
-    <section className="scene-panel fire-ops-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget fire-ops-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Fire Ops</h3>
         <div className="chip-strip">
           <span className="chip warning">water {payload.waterBombsAvailable}</span>

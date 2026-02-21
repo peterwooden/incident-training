@@ -4,14 +4,14 @@ Consumer-grade multiplayer simulation platform for role-based incident exercises
 
 ## What changed
 
-- Formal **Scene Panel** architecture with role-gated visibility.
-- Two scenarios with panelized gameplay:
+- Formal **Widget** architecture with role-gated visibility.
+- Two scenarios with widget-driven gameplay:
   - `bomb-defusal`
   - `bushfire-command`
 - GM controls:
   - role finalization
-  - panel grant/revoke
-  - panel lock/unlock
+  - widget grant/revoke
+  - widget lock/unlock
   - role simulation view
 - Debrief logging and replay metrics.
 - Cinematic React UI using SVG + Canvas effects with optional audio cues.
@@ -22,13 +22,13 @@ Consumer-grade multiplayer simulation platform for role-based incident exercises
 - Frontend: React + Vite (Cloudflare Pages compatible)
 - Shared contracts: TypeScript package (`packages/shared`)
 
-## Scene Panel model
+## Widget model
 
-Each mode exposes a panel registry. Panels are `shared`, `role-scoped`, or `gm-only`.
+Each mode exposes a widget registry. Widgets are `shared`, `role-scoped`, or `gm-only`.
 
 - Players see a role-based subset (with GM runtime overrides).
-- GM sees all panels and can simulate role perspective.
-- All action authorization is enforced server-side by panel access + lock state.
+- GM sees all widgets and can simulate role perspective.
+- All action authorization is enforced server-side by widget access + lock state.
 
 ## Canonical Gameplay Specs
 
@@ -42,8 +42,8 @@ Each mode exposes a panel registry. Panels are `shared`, `role-scoped`, or `gm-o
 - `POST /api/rooms/:code/start`
 - `POST /api/rooms/:code/action`
 - `POST /api/rooms/:code/roles/assign`
-- `POST /api/rooms/:code/panels/access`
-- `POST /api/rooms/:code/panels/lock`
+- `POST /api/rooms/:code/widgets/access`
+- `POST /api/rooms/:code/widgets/lock`
 - `POST /api/rooms/:code/gm/simulate-role`
 - `GET /api/rooms/:code/state?playerId=...`
 - `GET /api/rooms/:code/events?playerId=...` (SSE)

@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
-import type { GmOrchestratorPayload, IncidentRole, ScenePanelId } from "@incident/shared";
+import type { GmOrchestratorPayload, IncidentRole, WidgetId } from "@incident/shared";
 import { GmRoleSimulatorPanel } from "./GmRoleSimulatorPanel";
 
 interface GmOrchestratorPanelProps {
   payload: GmOrchestratorPayload;
-  panelIds: ScenePanelId[];
+  widgetIds: WidgetId[];
   onAssignRole: (playerId: string, role: IncidentRole) => void;
-  onTogglePanelAccess: (playerId: string, panelId: ScenePanelId, granted: boolean) => void;
-  onTogglePanelLock: (panelId: ScenePanelId, locked: boolean) => void;
+  onToggleWidgetAccess: (playerId: string, widgetId: WidgetId, granted: boolean) => void;
+  onToggleWidgetLock: (widgetId: WidgetId, locked: boolean) => void;
   onSimulateRole: (role?: IncidentRole) => void;
 }
 
@@ -15,10 +15,10 @@ type DrawerId = "roles" | "access" | "locks" | "simulate";
 
 export function GmOrchestratorPanel({
   payload,
-  panelIds,
+  widgetIds,
   onAssignRole,
-  onTogglePanelAccess,
-  onTogglePanelLock,
+  onToggleWidgetAccess,
+  onToggleWidgetLock,
   onSimulateRole,
 }: GmOrchestratorPanelProps) {
   const [activeDrawer, setActiveDrawer] = useState<DrawerId | undefined>("roles");
@@ -32,8 +32,8 @@ export function GmOrchestratorPanel({
   const accessSet = new Set(payload.accessByPlayer[selectedPlayer?.id ?? ""] ?? []);
 
   return (
-    <section className="scene-panel gm-orchestrator-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget gm-orchestrator-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>GM Command Deck</h3>
         <div className="chip-strip">
           <span className="chip">players {payload.players.length}</span>
@@ -123,16 +123,16 @@ export function GmOrchestratorPanel({
 
           {activeDrawer === "access" && selectedPlayer && (
             <section className="gm-drawer" role="tabpanel">
-              <h4>{selectedPlayer.name} panel grants</h4>
+              <h4>{selectedPlayer.name} widget grants</h4>
               <div className="grant-grid">
-                {panelIds.map((panelId) => (
+                {widgetIds.map((widgetId) => (
                   <button
-                    key={`${selectedPlayer.id}-${panelId}`}
+                    key={`${selectedPlayer.id}-${widgetId}`}
                     type="button"
-                    className={`grant-chip ${accessSet.has(panelId) ? "active" : ""}`}
-                    onClick={() => onTogglePanelAccess(selectedPlayer.id, panelId, !accessSet.has(panelId))}
+                    className={`grant-chip ${accessSet.has(widgetId) ? "active" : ""}`}
+                    onClick={() => onToggleWidgetAccess(selectedPlayer.id, widgetId, !accessSet.has(widgetId))}
                   >
-                    {panelId}
+                    {widgetId}
                   </button>
                 ))}
               </div>
@@ -142,16 +142,16 @@ export function GmOrchestratorPanel({
           {activeDrawer === "locks" && (
             <section className="gm-drawer" role="tabpanel">
               <div className="lock-grid">
-                {panelIds.map((panelId) => {
-                  const locked = payload.panelLocks[panelId]?.locked === true;
+                {widgetIds.map((widgetId) => {
+                  const locked = payload.widgetLocks[widgetId]?.locked === true;
                   return (
                     <button
-                      key={panelId}
+                      key={widgetId}
                       type="button"
                       className={`lock-chip ${locked ? "locked" : ""}`}
-                      onClick={() => onTogglePanelLock(panelId, !locked)}
+                      onClick={() => onToggleWidgetLock(widgetId, !locked)}
                     >
-                      {panelId}
+                      {widgetId}
                     </button>
                   );
                 })}

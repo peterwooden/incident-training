@@ -3,12 +3,12 @@ import type {
   BombStageId,
   DebriefEvent,
   IncidentRole,
-  PanelState,
+  WidgetState,
   Player,
   PlayerAction,
   RoomState,
-  ScenePanelAccessRule,
-  ScenePanelId,
+  WidgetAccessRule,
+  WidgetId,
   TimelineEvent,
 } from "@incident/shared";
 
@@ -66,16 +66,16 @@ export interface GameModeEngine {
   initObjectives(rng: SeededRandom): RoomState["objectives"];
   initSummary(): string;
   initScenario(rng: SeededRandom): RoomState["scenario"];
-  getPanelDefinitions(): ScenePanelAccessRule[];
-  getDefaultAccessTemplate(role: IncidentRole): ScenePanelId[];
-  getPanelForAction(actionType: PlayerAction["type"]): ScenePanelId | undefined;
+  getWidgetDefinitions(): WidgetAccessRule[];
+  getDefaultWidgetAccessTemplate(role: IncidentRole): WidgetId[];
+  getWidgetForAction(actionType: PlayerAction["type"]): WidgetId | undefined;
   onAction(state: RoomState, action: PlayerAction, now: number): ModeMutation;
   onTick(state: RoomState, now: number): ModeMutation;
-  buildPanelDeck(args: {
+  buildWidgetDeck(args: {
     state: RoomState;
     viewer?: Player;
     effectiveRole: IncidentRole;
-    panelState: PanelState;
+    widgetState: WidgetState;
     roleOptions: IncidentRole[];
     debriefMetrics: {
       executionAccuracy: number;
@@ -83,5 +83,5 @@ export interface GameModeEngine {
       communicationDiscipline: number;
       overall: number;
     };
-  }): import("@incident/shared").PanelDeckView;
+  }): import("@incident/shared").WidgetDeckView;
 }

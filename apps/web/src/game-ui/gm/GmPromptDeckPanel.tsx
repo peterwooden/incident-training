@@ -30,8 +30,8 @@ export function GmPromptDeckPanel({ payload, locked, onRelease }: GmPromptDeckPa
   })).filter((group) => group.cards.length > 0);
 
   return (
-    <section className="scene-panel gm-prompt-deck-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget gm-prompt-deck-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>GM Prompt Deck</h3>
         <div className="chip-strip">
           <span className="chip">{PHASE_LABEL[payload.phaseId]}</span>

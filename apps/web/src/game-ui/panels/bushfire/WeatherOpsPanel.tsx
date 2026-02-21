@@ -25,8 +25,8 @@ export function WeatherOpsPanel({ payload, locked, onIssueForecast }: WeatherOps
   const heading = headingMap[payload.windDirection] ?? 90;
 
   return (
-    <section className="scene-panel weather-ops-panel visual-heavy">
-      <header className="panel-chip-row">
+    <section className="scene-widget weather-ops-panel visual-heavy">
+      <header className="widget-chip-row">
         <h3>Weather Ops</h3>
         <div className="chip-strip">
           <span className="chip warning">{payload.windDirection}/{payload.windStrength}</span>

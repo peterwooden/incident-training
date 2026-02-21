@@ -4,8 +4,8 @@ import type {
   CreateRoomRequest,
   JoinRoomRequest,
   SetGmSimulatedRoleRequest,
-  SetPanelAccessRequest,
-  SetPanelLockRequest,
+  SetWidgetAccessRequest,
+  SetWidgetLockRequest,
   StartGameRequest,
 } from "@incident/shared";
 import { createRoomCode } from "../domain/ids";
@@ -58,7 +58,7 @@ export async function handleHttp(request: Request, env: Env): Promise<Response> 
   }
 
   const roomMatch = path.match(
-    /^\/api\/rooms\/([^/]+)(?:\/(join|start|action|state|events|roles\/assign|panels\/access|panels\/lock|gm\/simulate-role))?$/,
+    /^\/api\/rooms\/([^/]+)(?:\/(join|start|action|state|events|roles\/assign|widgets\/access|widgets\/lock|gm\/simulate-role))?$/,
   );
   if (!roomMatch) {
     return json({ error: "Not found" }, 404);
@@ -104,18 +104,18 @@ export async function handleHttp(request: Request, env: Env): Promise<Response> 
     });
   }
 
-  if (request.method === "POST" && action === "panels/access") {
-    const body = await parseJson<SetPanelAccessRequest>(request);
-    return stub.fetch("https://room/panel-access", {
+  if (request.method === "POST" && action === "widgets/access") {
+    const body = await parseJson<SetWidgetAccessRequest>(request);
+    return stub.fetch("https://room/widget-access", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
   }
 
-  if (request.method === "POST" && action === "panels/lock") {
-    const body = await parseJson<SetPanelLockRequest>(request);
-    return stub.fetch("https://room/panel-lock", {
+  if (request.method === "POST" && action === "widgets/lock") {
+    const body = await parseJson<SetWidgetLockRequest>(request);
+    return stub.fetch("https://room/widget-lock", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
