@@ -42,10 +42,16 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Build web app
         run: npm run -w apps/web build
+      - name: Validate Pages project name secret
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME }}" ]; then
+            echo "Missing secret: CLOUDFLARE_PAGES_PROJECT_NAME"
+            exit 1
+          fi
       - name: Deploy web app to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           workingDirectory: apps/web
-          command: pages deploy dist --project-name incident-training-web
+          command: pages deploy dist --project-name ${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME }}
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
