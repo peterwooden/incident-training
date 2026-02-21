@@ -32,6 +32,62 @@
       "out": "apps/web/src/game-ui/visuals/assets/generated/manual-desk-bg.png",
       "background": "opaque",
       "prompt": "cinematic operations desk surface with notebooks, ruler, dim emergency lighting, neutral center composition for overlay UI, realistic texture, no text"
+    },
+    {
+      "id": "bushfire-firefront-monitor-low",
+      "out": "apps/web/src/game-ui/visuals/assets/generated/firefront-monitor-low.png",
+      "background": "opaque",
+      "base": "apps/web/src/game-ui/visuals/assets/generated/bushfire-town-base-v2.png",
+      "strength": 0.35,
+      "prompt": "subtle early-stage brushfire glow at far eastern ridge only, mostly green valley intact, top-down tactical realism, no labels"
+    },
+    {
+      "id": "bushfire-firefront-escalation-med",
+      "out": "apps/web/src/game-ui/visuals/assets/generated/firefront-escalation-med.png",
+      "background": "opaque",
+      "base": "apps/web/src/game-ui/visuals/assets/generated/bushfire-town-base-v2.png",
+      "strength": 0.5,
+      "prompt": "firefront expanding toward eastern suburbs with visible flame bands and smoke plumes, tactical top-down map style, no labels"
+    },
+    {
+      "id": "bushfire-firefront-crisis-high",
+      "out": "apps/web/src/game-ui/visuals/assets/generated/firefront-crisis-high.png",
+      "background": "opaque",
+      "base": "apps/web/src/game-ui/visuals/assets/generated/bushfire-town-base-v2.png",
+      "strength": 0.65,
+      "prompt": "intense wildfire front crossing multiple sectors, heavy smoke and ember glow, high urgency top-down tactical realism, no labels"
+    },
+    {
+      "id": "bushfire-firefront-catastrophe-high",
+      "out": "apps/web/src/game-ui/visuals/assets/generated/firefront-catastrophe-high.png",
+      "background": "opaque",
+      "base": "apps/web/src/game-ui/visuals/assets/generated/bushfire-town-base-v2.png",
+      "strength": 0.78,
+      "prompt": "catastrophic firefront engulfing valley edges with dense smoke canopy and severe orange burn scars, top-down tactical realism, no labels"
+    },
+    {
+      "id": "bushfire-overlay-phase-1",
+      "out": "apps/web/src/game-ui/visuals/assets/generated/firefront-overlay-phase_1_monitor.png",
+      "background": "transparent",
+      "prompt": "transparent overlay of faint warm heat haze and tiny ember specks for early wildfire monitor phase, no terrain, no text"
+    },
+    {
+      "id": "bushfire-overlay-phase-2",
+      "out": "apps/web/src/game-ui/visuals/assets/generated/firefront-overlay-phase_2_escalation.png",
+      "background": "transparent",
+      "prompt": "transparent overlay of moderate ember trails and smoke streaks for wildfire escalation phase, no terrain, no text"
+    },
+    {
+      "id": "bushfire-overlay-phase-3",
+      "out": "apps/web/src/game-ui/visuals/assets/generated/firefront-overlay-phase_3_crisis.png",
+      "background": "transparent",
+      "prompt": "transparent overlay with dense ember flow and smoke bands for wildfire crisis phase, no terrain, no text"
+    },
+    {
+      "id": "bushfire-overlay-phase-4",
+      "out": "apps/web/src/game-ui/visuals/assets/generated/firefront-overlay-phase_4_catastrophe.png",
+      "background": "transparent",
+      "prompt": "transparent overlay of severe smoke wall and ember storm for wildfire catastrophe phase, no terrain, no text"
     }
   ]
 }

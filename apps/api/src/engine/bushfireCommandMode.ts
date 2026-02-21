@@ -277,15 +277,14 @@ const ZONE_GEOMETRY = [
   },
 ];
 
-const PANEL_DEFINITIONS: WidgetAccessRule[] = [
+const WIDGET_DEFINITIONS: WidgetAccessRule[] = [
   { id: "mission_hud", kind: "shared", defaultRoles: ["Observer"] },
   { id: "town_map", kind: "shared", defaultRoles: ["Observer"] },
+  { id: "status_feed", kind: "shared", defaultRoles: ["Observer"] },
   { id: "fire_ops_console", kind: "role-scoped", defaultRoles: ["Fire Operations SME"] },
   { id: "police_ops_console", kind: "role-scoped", defaultRoles: ["Police Operations SME"] },
   { id: "public_info_console", kind: "role-scoped", defaultRoles: ["Public Information Officer"] },
-  { id: "incident_command_console", kind: "role-scoped", defaultRoles: ["Incident Controller"] },
   { id: "weather_ops_console", kind: "role-scoped", defaultRoles: ["Meteorologist"] },
-  { id: "role_briefing", kind: "role-scoped", defaultRoles: ["Observer"] },
   { id: "gm_orchestrator", kind: "gm-only", defaultRoles: [] },
   { id: "gm_prompt_deck", kind: "gm-only", defaultRoles: [] },
   { id: "fsm_editor", kind: "gm-only", defaultRoles: [] },
@@ -293,16 +292,16 @@ const PANEL_DEFINITIONS: WidgetAccessRule[] = [
 ];
 
 const DEFAULT_BY_ROLE: Record<IncidentRole, WidgetId[]> = {
-  "Incident Controller": ["mission_hud", "town_map", "incident_command_console", "role_briefing"],
-  "Fire Operations SME": ["mission_hud", "town_map", "fire_ops_console", "role_briefing"],
-  "Police Operations SME": ["mission_hud", "town_map", "police_ops_console", "role_briefing"],
-  "Public Information Officer": ["mission_hud", "town_map", "public_info_console", "role_briefing"],
-  Meteorologist: ["mission_hud", "town_map", "weather_ops_console", "role_briefing"],
-  "Lead Coordinator": ["mission_hud", "town_map", "role_briefing"],
-  "Device Specialist": ["mission_hud", "town_map", "role_briefing"],
-  "Manual Analyst": ["mission_hud", "town_map", "role_briefing"],
-  "Safety Officer": ["mission_hud", "town_map", "role_briefing"],
-  Observer: ["mission_hud", "town_map", "role_briefing"],
+  "Incident Controller": ["mission_hud", "town_map", "status_feed"],
+  "Fire Operations SME": ["mission_hud", "town_map", "status_feed", "fire_ops_console"],
+  "Police Operations SME": ["mission_hud", "town_map", "status_feed", "police_ops_console"],
+  "Public Information Officer": ["mission_hud", "town_map", "status_feed", "public_info_console"],
+  Meteorologist: ["mission_hud", "town_map", "status_feed", "weather_ops_console"],
+  "Lead Coordinator": ["mission_hud", "town_map", "status_feed"],
+  "Device Specialist": ["mission_hud", "town_map", "status_feed"],
+  "Manual Analyst": ["mission_hud", "town_map", "status_feed"],
+  "Safety Officer": ["mission_hud", "town_map", "status_feed"],
+  Observer: ["mission_hud", "town_map", "status_feed"],
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -624,6 +623,48 @@ function toToolDropZones(cells: BushfireCell[]) {
     .flat();
 }
 
+function computeFirefrontStage(phaseId: BushfirePhaseId, containment: number, smokeDensity: number): string {
+  const phaseKey =
+    phaseId === "phase_1_monitor"
+      ? "monitor"
+      : phaseId === "phase_2_escalation"
+      ? "escalation"
+      : phaseId === "phase_3_crisis"
+      ? "crisis"
+      : phaseId === "phase_4_catastrophe"
+      ? "catastrophe"
+      : "terminal";
+  const intensity = containment > 65 && smokeDensity < 40 ? "low" : containment > 35 ? "med" : "high";
+  return `${phaseKey}-${intensity}`;
+}
+
+function weatherStateForWind(windStrength: 1 | 2 | 3) {
+  if (windStrength >= 3) {
+    return { conditionIcon: "storm-wind", severityEmoji: "🌪️", gustBand: "severe" as const };
+  }
+  if (windStrength === 2) {
+    return { conditionIcon: "gusts", severityEmoji: "🌬️", gustBand: "moderate" as const };
+  }
+  return { conditionIcon: "mild", severityEmoji: "🌤️", gustBand: "low" as const };
+}
+
+function maybeGenerateListenerReaction(scenario: BushfireScenarioState, now: number) {
+  const anxiety = scenario.publicAnxiety;
+  const sentiment = anxiety > 70 ? "panic" : anxiety > 38 ? "worried" : "calm";
+  const text =
+    sentiment === "panic"
+      ? "Why are evacuation roads stalled? We need clear direction now."
+      : sentiment === "worried"
+      ? "Hearing mixed reports in the east, can radio confirm next steps?"
+      : "Thanks for the updates. We are following the official guidance.";
+  return {
+    id: `listener_${now}_${scenario.listenerReactions.length}`,
+    atEpochMs: now,
+    sentiment: sentiment as "calm" | "worried" | "panic",
+    text,
+  };
+}
+
 function buildBushfireFsmPayload(state: RoomState) {
   const scenario = state.scenario;
   if (scenario.type !== "bushfire-command") {
@@ -689,7 +730,7 @@ export class BushfireCommandMode implements GameModeEngine {
       {
         id: "fire_obj_4",
         description: "Broadcast public rumor corrections and calm advisories",
-        requiredAction: "bushfire_issue_public_update",
+        requiredAction: "bushfire_submit_status_update",
         completed: false,
       },
     ];
@@ -719,19 +760,44 @@ export class BushfireCommandMode implements GameModeEngine {
       publicAnxiety: 18,
       containment: 78,
       waterBombsAvailable: 3,
+      waterRemainingLiters: 12000,
       cells: createCells(rng),
       publicAdvisories: [],
+      statusFeedEntries: [
+        {
+          id: "status_init_1",
+          atEpochMs: 0,
+          authorRole: "Incident Controller",
+          authorName: "System",
+          message: "The Valley command center activated. Awaiting field and weather updates.",
+          kind: "system",
+        },
+      ],
+      listenerReactions: [
+        {
+          id: "listener_init_1",
+          atEpochMs: 0,
+          sentiment: "worried",
+          text: "Can someone confirm if Eastern Ridge residents should prepare to evacuate?",
+        },
+      ],
+      firefrontVisualStage: "monitor-low",
+      weatherState: {
+        conditionIcon: "wind",
+        severityEmoji: "🌤️",
+        gustBand: "low",
+      },
       strategyNotes: ["Initial conditions are mild; prepare cross-agency coordination before wind shift."],
       promptDeck: createPromptDeck(rng),
     };
   }
 
   getWidgetDefinitions(): WidgetAccessRule[] {
-    return PANEL_DEFINITIONS;
+    return WIDGET_DEFINITIONS;
   }
 
   getDefaultWidgetAccessTemplate(role: IncidentRole): WidgetId[] {
-    return DEFAULT_BY_ROLE[role] ?? ["mission_hud", "town_map", "role_briefing"];
+    return DEFAULT_BY_ROLE[role] ?? ["mission_hud", "town_map", "status_feed"];
   }
 
   getWidgetForAction(actionType: PlayerAction["type"]): WidgetId | undefined {
@@ -740,9 +806,8 @@ export class BushfireCommandMode implements GameModeEngine {
       bushfire_drop_water: "fire_ops_console",
       bushfire_create_firebreak: "fire_ops_console",
       bushfire_set_roadblock: "police_ops_console",
-      bushfire_issue_public_update: "public_info_console",
+      bushfire_submit_status_update: "public_info_console",
       bushfire_issue_forecast: "weather_ops_console",
-      bushfire_ack_prompt: "role_briefing",
       gm_release_prompt: "gm_prompt_deck",
       assign_role: "gm_orchestrator",
       gm_fsm_transition: "fsm_editor",
@@ -760,9 +825,12 @@ export class BushfireCommandMode implements GameModeEngine {
       ...scenario,
       cells: scenario.cells.map((cell) => ({ ...cell })),
       publicAdvisories: [...scenario.publicAdvisories],
+      statusFeedEntries: [...scenario.statusFeedEntries],
+      listenerReactions: [...scenario.listenerReactions],
       strategyNotes: [...scenario.strategyNotes],
       issuedForecasts: [...scenario.issuedForecasts],
       promptDeck: scenario.promptDeck.map((card) => ({ ...card, acknowledgedByPlayerIds: [...card.acknowledgedByPlayerIds] })),
+      weatherState: { ...scenario.weatherState },
     };
 
     const targetCellId = String(action.payload?.cellId ?? "");
@@ -790,10 +858,11 @@ export class BushfireCommandMode implements GameModeEngine {
         break;
       }
       case "bushfire_drop_water": {
-        if (!targetCell || next.waterBombsAvailable <= 0) {
+        if (!targetCell || next.waterBombsAvailable <= 0 || next.waterRemainingLiters < 1200) {
           return { pressureDelta: 4, scoreDelta: -4, timelineAdds, summary: "Water drop unavailable." };
         }
         next.waterBombsAvailable -= 1;
+        next.waterRemainingLiters = clamp(next.waterRemainingLiters - 1200, 0, 20000);
         targetCell.fireLevel = clamp(targetCell.fireLevel - 24, 0, 100);
         pressureDelta -= 5;
         scoreDelta += 10;
@@ -822,9 +891,18 @@ export class BushfireCommandMode implements GameModeEngine {
         summary = `Roadblock and evacuation lane activated for ${targetCell.zoneName}.`;
         break;
       }
+      case "bushfire_submit_status_update":
       case "bushfire_issue_public_update": {
         const template = String(action.payload?.template ?? "Emergency advisory issued.");
         next.publicAdvisories.push(template);
+        next.statusFeedEntries.push({
+          id: `status_${now}_${next.statusFeedEntries.length}`,
+          atEpochMs: now,
+          authorRole: player?.role ?? "Public Information Officer",
+          authorName: player?.name ?? "Radio Host",
+          message: template,
+          kind: "radio",
+        });
         const rumorCorrection = /water|rumor|false|verified|supply/i.test(template) ? 14 : 9;
         next.rumorPressure = clamp(next.rumorPressure - rumorCorrection, 0, 100);
         next.publicAnxiety = clamp(next.publicAnxiety - 12, 0, 100);
@@ -838,6 +916,11 @@ export class BushfireCommandMode implements GameModeEngine {
         next.issuedForecasts.push(`${phaseLabel(next.phaseId)}:${forecastType}`);
         next.forecastConfidence = clamp(next.forecastConfidence + 16, 0, 100);
         next.rumorPressure = clamp(next.rumorPressure - 6, 0, 100);
+        next.weatherState = {
+          conditionIcon: forecastType === "smoke_alert" ? "smoke" : "wind",
+          severityEmoji: next.windStrength >= 3 ? "🌬️" : "🌤️",
+          gustBand: next.windStrength >= 3 ? "severe" : next.windStrength === 2 ? "moderate" : "low",
+        };
         pressureDelta -= 3;
         scoreDelta += 8;
         summary = "Meteorology forecast issued to command team.";
@@ -905,9 +988,12 @@ export class BushfireCommandMode implements GameModeEngine {
       timerSec: Math.max(0, TOTAL_DURATION_SEC - (scenario.elapsedSec + TICK_SECONDS)),
       cells: scenario.cells.map((cell) => ({ ...cell })),
       publicAdvisories: [...scenario.publicAdvisories],
+      statusFeedEntries: [...scenario.statusFeedEntries],
+      listenerReactions: [...scenario.listenerReactions],
       strategyNotes: [...scenario.strategyNotes],
       issuedForecasts: [...scenario.issuedForecasts],
       promptDeck: scenario.promptDeck.map((card) => ({ ...card, acknowledgedByPlayerIds: [...card.acknowledgedByPlayerIds] })),
+      weatherState: { ...scenario.weatherState },
     };
 
     const timelineAdds: RoomState["timeline"] = [];
@@ -941,6 +1027,7 @@ export class BushfireCommandMode implements GameModeEngine {
     next.windDirection = phase.windDirection;
     next.windStrength = phase.windStrength;
     next.windKph = phase.windKph;
+    next.weatherState = weatherStateForWind(next.windStrength);
 
     next.cells = spreadFire(next.cells, next.windStrength, phase.spreadMultiplier);
 
@@ -977,6 +1064,17 @@ export class BushfireCommandMode implements GameModeEngine {
     next.publicAnxiety = clamp(next.publicAnxiety + anxietyDelta, 0, 100);
 
     next.containment = containmentFromCells(next.cells);
+    next.firefrontVisualStage = computeFirefrontStage(next.phaseId, next.containment, next.smokeDensity);
+    if (next.waterBombsAvailable < 3 && next.waterRemainingLiters < 8000) {
+      next.waterBombsAvailable = clamp(next.waterBombsAvailable + 1, 0, 3);
+      next.waterRemainingLiters = clamp(next.waterRemainingLiters + 900, 0, 20000);
+    }
+    if ((next.elapsedSec / TICK_SECONDS) % 2 === 0) {
+      next.listenerReactions.push(maybeGenerateListenerReaction(next, now));
+      if (next.listenerReactions.length > 24) {
+        next.listenerReactions = next.listenerReactions.slice(-24);
+      }
+    }
 
     const pressureDelta = Math.round(phase.panicBias + next.rumorPressure * 0.04 + next.trafficCongestion * 0.02);
     const scoreDelta = Math.round((crewCoverage + firebreakCoverage + policeCoverage) * 0.4 - severeZones * 0.7);
@@ -1020,7 +1118,7 @@ export class BushfireCommandMode implements GameModeEngine {
     const isGm = Boolean(viewer?.isGameMaster);
     const granted = viewer ? args.widgetState.accessGrants[viewer.id] ?? this.getDefaultWidgetAccessTemplate(viewer.role) : [];
     const availableWidgetIds = isGm
-      ? PANEL_DEFINITIONS.map((panel) => panel.id)
+      ? WIDGET_DEFINITIONS.map((widget) => widget.id)
       : granted.filter(
           (widgetId) => widgetId !== "gm_orchestrator" && widgetId !== "gm_prompt_deck" && widgetId !== "fsm_editor" && widgetId !== "debrief_replay",
         );
@@ -1033,23 +1131,6 @@ export class BushfireCommandMode implements GameModeEngine {
         panelMap[panel.id] = panel as never;
       }
     };
-
-    const promptAcknowledgedByViewer = (card: BushfirePromptCardState): boolean => {
-      if (!viewer) {
-        return false;
-      }
-      return card.acknowledgedByPlayerIds.includes(viewer.id);
-    };
-
-    const visiblePrompts = (() => {
-      if (isGm) {
-        return scenario.promptDeck;
-      }
-      if (!viewer) {
-        return [];
-      }
-      return scenario.promptDeck.filter((card) => card.released && card.targetRole === viewer.role);
-    })();
 
     pushPanel({
       id: "mission_hud",
@@ -1126,11 +1207,33 @@ export class BushfireCommandMode implements GameModeEngine {
     });
 
     pushPanel({
+      id: "status_feed",
+      kind: "shared",
+      title: "Status Feed",
+      subtitle: "Radio updates and public sentiment",
+      priority: 3,
+      visualPriority: 90,
+      renderMode: "svg",
+      interactionMode: "diegetic-control",
+      overlayTextLevel: "supporting",
+      fxProfile: "cinematic",
+      ambientLoopMs: 1800,
+      hoverDepthPx: 5,
+      materialPreset: "ops-card",
+      locked: withLock("status_feed"),
+      payload: {
+        entries: scenario.statusFeedEntries.slice(-24),
+        listenerReactions: scenario.listenerReactions.slice(-16),
+        readOnly: !isGm && viewer?.role !== "Public Information Officer",
+      },
+    });
+
+    pushPanel({
       id: "fire_ops_console",
       kind: "role-scoped",
       title: "Fire Ops Console",
       subtitle: "Containment and suppression",
-      priority: 3,
+      priority: 4,
       visualPriority: 84,
       renderMode: "svg",
       interactionMode: "diegetic-control",
@@ -1142,7 +1245,21 @@ export class BushfireCommandMode implements GameModeEngine {
       locked: withLock("fire_ops_console"),
       payload: {
         waterBombsAvailable: scenario.waterBombsAvailable,
+        waterRemainingLiters: scenario.waterRemainingLiters,
+        phaseId: scenario.phaseId,
+        firefrontStageImageId: `firefront-${scenario.firefrontVisualStage}`,
+        firefrontOverlayImageId: `firefront-overlay-${scenario.phaseId}`,
         burningZoneIds: burningZoneIds(scenario.cells),
+        updates: scenario.cells
+          .filter((cell) => cell.fireLevel > 0)
+          .sort((a, b) => b.fireLevel - a.fireLevel)
+          .slice(0, 5)
+          .map((cell) => ({
+            id: `fire_update_${cell.id}`,
+            atEpochMs: args.state.startedAtEpochMs ?? args.state.createdAtEpochMs,
+            text: `${cell.zoneName} fire at ${Math.round(cell.fireLevel)}%.`,
+            severity: cell.fireLevel > 60 ? "high" : cell.fireLevel > 30 ? "medium" : "low",
+          })),
         note: scenario.phaseId === "phase_4_catastrophe"
           ? "Prioritize life safety corridors over asset protection."
           : "Prioritize severe sectors near Eastern Ridge and suburbs.",
@@ -1154,7 +1271,7 @@ export class BushfireCommandMode implements GameModeEngine {
       kind: "role-scoped",
       title: "Police Ops Console",
       subtitle: "Traffic and evacuation control",
-      priority: 4,
+      priority: 5,
       visualPriority: 82,
       renderMode: "svg",
       interactionMode: "diegetic-control",
@@ -1167,6 +1284,20 @@ export class BushfireCommandMode implements GameModeEngine {
       payload: {
         evacuationZoneIds: scenario.cells.filter((cell) => cell.evacuated).map((cell) => cell.id),
         blockedZoneIds: scenario.cells.filter((cell) => cell.hasPoliceUnit).map((cell) => cell.id),
+        updates: [
+          {
+            id: "police_main_highway",
+            atEpochMs: args.state.startedAtEpochMs ?? args.state.createdAtEpochMs,
+            text: `Main Highway congestion ${Math.round(scenario.trafficCongestion)}.`,
+            severity: scenario.trafficCongestion > 70 ? "high" : scenario.trafficCongestion > 40 ? "medium" : "low",
+          },
+          {
+            id: "police_evac",
+            atEpochMs: args.state.startedAtEpochMs ?? args.state.createdAtEpochMs,
+            text: `Evacuation corridors active in ${scenario.cells.filter((cell) => cell.evacuated).length} zones.`,
+            severity: "medium",
+          },
+        ],
         note: `Main Highway congestion index ${Math.round(scenario.trafficCongestion)}.`,
       },
     });
@@ -1176,7 +1307,7 @@ export class BushfireCommandMode implements GameModeEngine {
       kind: "role-scoped",
       title: "Public Info Console",
       subtitle: "Broadcast and rumor control",
-      priority: 5,
+      priority: 6,
       visualPriority: 80,
       renderMode: "svg",
       interactionMode: "diegetic-control",
@@ -1190,32 +1321,8 @@ export class BushfireCommandMode implements GameModeEngine {
         advisories: scenario.publicAdvisories,
         anxiety: scenario.publicAnxiety,
         cadenceHint: scenario.rumorPressure > 55 ? "Increase cadence and rumor debunks now." : "Maintain calm regular updates.",
-      },
-    });
-
-    pushPanel({
-      id: "incident_command_console",
-      kind: "role-scoped",
-      title: "Incident Command Console",
-      subtitle: "Mayor strategic view",
-      priority: 6,
-      visualPriority: 78,
-      renderMode: "svg",
-      interactionMode: "diegetic-control",
-      overlayTextLevel: "supporting",
-      fxProfile: "cinematic",
-      ambientLoopMs: 2200,
-      hoverDepthPx: 4,
-      materialPreset: "ops-card",
-      locked: withLock("incident_command_console"),
-      payload: {
-        containment: scenario.containment,
-        strategicObjectives: args.state.objectives.map((objective) => objective.description),
-        topRisks: [
-          `Distance to town: ${Math.round(scenario.distanceToTownMeters)}m`,
-          `Main Highway congestion: ${Math.round(scenario.trafficCongestion)}`,
-          `Smoke density: ${Math.round(scenario.smokeDensity)}`,
-        ],
+        listenerFeed: scenario.listenerReactions.slice(-8),
+        canPublish: !withLock("public_info_console").locked,
       },
     });
 
@@ -1240,44 +1347,12 @@ export class BushfireCommandMode implements GameModeEngine {
         windStrength: scenario.windStrength,
         windKph: scenario.windKph,
         forecastConfidence: scenario.forecastConfidence,
+        conditionIcon: scenario.weatherState.conditionIcon,
+        severityEmoji: scenario.weatherState.severityEmoji,
+        gustBand: scenario.weatherState.gustBand,
         nextShiftHint: scenario.phaseId === "phase_1_monitor" ? "Potential sudden West shift expected." : "High volatility remains through crisis phases.",
         recommendation: scenario.forecastConfidence < 45 ? "Issue immediate forecast update." : "Maintain forecast cadence and monitor gust spikes.",
         issuedForecasts: scenario.issuedForecasts.slice(-6),
-      },
-    });
-
-    pushPanel({
-      id: "role_briefing",
-      kind: "role-scoped",
-      title: "Private Briefing",
-      subtitle: "Role-targeted prompt inbox",
-      priority: 8,
-      visualPriority: 74,
-      renderMode: "svg",
-      interactionMode: "diegetic-control",
-      overlayTextLevel: "supporting",
-      fxProfile: "cinematic",
-      ambientLoopMs: 2200,
-      hoverDepthPx: 4,
-      materialPreset: "ops-card",
-      locked: withLock("role_briefing"),
-      payload: {
-        phaseId: scenario.phaseId,
-        role: viewer?.role ?? args.effectiveRole,
-        roleLabel: BUSHFIRE_ROLE_LABELS[viewer?.role ?? args.effectiveRole],
-        prompts: visiblePrompts.map((card) => ({
-          id: card.id,
-          title: card.title,
-          body: card.body,
-          releasedAtEpochMs: card.releasedAtEpochMs,
-          acknowledged: promptAcknowledgedByViewer(card),
-          severity:
-            card.phaseId === "phase_1_monitor"
-              ? "low"
-              : card.phaseId === "phase_2_escalation"
-              ? "medium"
-              : "high",
-        })),
       },
     });
 
@@ -1321,8 +1396,8 @@ export class BushfireCommandMode implements GameModeEngine {
             })),
           drawerSections: [
             { id: "roles", title: "Roles" },
-            { id: "access", title: "Panel Access" },
-            { id: "locks", title: "Panel Locks" },
+            { id: "access", title: "Widget Access" },
+            { id: "locks", title: "Widget Locks" },
             { id: "simulate", title: "Simulate Role" },
           ],
           selectionContext: {},

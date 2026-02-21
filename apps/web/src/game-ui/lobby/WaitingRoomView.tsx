@@ -47,7 +47,7 @@ export function WaitingRoomView({ state, session, error, onAssignRole, onStart }
 
   const roles = MODE_ROLES[state.mode];
   const missingRequiredRoles = useMemo(() => {
-    const present = new Set(state.players.map((player) => player.role));
+    const present = new Set(state.players.filter((player) => !player.isGameMaster).map((player) => player.role));
     return REQUIRED_ROLES[state.mode].filter((role) => !present.has(role));
   }, [state.mode, state.players]);
 
@@ -88,9 +88,9 @@ export function WaitingRoomView({ state, session, error, onAssignRole, onStart }
             <article key={player.id} className="waiting-player-card">
               <div className="waiting-player-meta">
                 <strong>{player.name}</strong>
-                {player.isGameMaster && <span className="chip supporting">GM</span>}
+                {player.isGameMaster && <span className="chip supporting">Facilitator GM</span>}
               </div>
-              {isGm ? (
+              {isGm && !player.isGameMaster ? (
                 <select
                   value={player.role}
                   onChange={(event) => void onAssignRole(player.id, event.target.value as IncidentRole)}

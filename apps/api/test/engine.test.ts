@@ -334,20 +334,18 @@ describe("BushfireCommandMode", () => {
     }
   });
 
-  it("releases prompts for the target role and keeps other roles isolated", () => {
+  it("routes radio host updates into shared status feed", () => {
     const mode = new BushfireCommandMode();
     const base = baseState("bushfire-command", "Incident Controller");
-    const gm = { id: "gm", name: "GM", role: "Incident Controller" as const, isGameMaster: true };
-    const met = { id: "met", name: "Met", role: "Meteorologist" as const, isGameMaster: false };
-    const fire = { id: "fire", name: "Fire", role: "Fire Operations SME" as const, isGameMaster: false };
+    const gm = { id: "gm", name: "GM", role: "Observer" as const, isGameMaster: true };
+    const radio = { id: "radio", name: "Radio", role: "Public Information Officer" as const, isGameMaster: false };
     let state: RoomState = {
       ...base,
-      players: [gm, met, fire],
+      players: [gm, radio],
       widgetState: {
         accessGrants: {
-          gm: mode.getWidgetDefinitions().map((panel) => panel.id),
-          met: mode.getDefaultWidgetAccessTemplate("Meteorologist"),
-          fire: mode.getDefaultWidgetAccessTemplate("Fire Operations SME"),
+          gm: mode.getWidgetDefinitions().map((widget) => widget.id),
+          radio: mode.getDefaultWidgetAccessTemplate("Public Information Officer"),
         },
         widgetLocks: {},
       },
@@ -358,65 +356,36 @@ describe("BushfireCommandMode", () => {
       mode.onAction(
         state,
         {
-          type: "gm_release_prompt",
-          playerId: "gm",
-          widgetId: "gm_prompt_deck",
-          payload: { cardId: "p1_radio_rumor" },
+          type: "bushfire_submit_status_update",
+          playerId: "radio",
+          widgetId: "public_info_console",
+          payload: { template: "Evacuate Eastern Ridge immediately." },
         },
         Date.now(),
       ),
     );
 
-    const metDeck = mode.buildWidgetDeck({
+    const radioDeck = mode.buildWidgetDeck({
       state,
-      viewer: met,
-      effectiveRole: met.role,
+      viewer: radio,
+      effectiveRole: radio.role,
       widgetState: state.widgetState,
       roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Meteorologist", "Observer"],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
 
-    const fireDeck = mode.buildWidgetDeck({
+    const gmDeck = mode.buildWidgetDeck({
       state,
-      viewer: fire,
-      effectiveRole: fire.role,
+      viewer: gm,
+      effectiveRole: gm.role,
       widgetState: state.widgetState,
       roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Meteorologist", "Observer"],
       debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
     });
 
-    const metPrompts = (metDeck.widgetsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
-    const firePrompts = (fireDeck.widgetsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
-
-    expect(metPrompts.map((prompt) => prompt.id)).not.toContain("p1_radio_rumor");
-    expect(firePrompts.map((prompt) => prompt.id)).not.toContain("p1_radio_rumor");
-
-    const pio = { id: "pio", name: "PIO", role: "Public Information Officer" as const, isGameMaster: false };
-    const pioDeck = mode.buildWidgetDeck({
-      state: {
-        ...state,
-        players: [...state.players, pio],
-        widgetState: {
-          ...state.widgetState,
-          accessGrants: {
-            ...state.widgetState.accessGrants,
-            pio: mode.getDefaultWidgetAccessTemplate("Public Information Officer"),
-          },
-        },
-      },
-      viewer: pio,
-      effectiveRole: pio.role,
-      widgetState: {
-        ...state.widgetState,
-        accessGrants: {
-          ...state.widgetState.accessGrants,
-          pio: mode.getDefaultWidgetAccessTemplate("Public Information Officer"),
-        },
-      },
-      roleOptions: ["Incident Controller", "Fire Operations SME", "Police Operations SME", "Public Information Officer", "Meteorologist", "Observer"],
-      debriefMetrics: { executionAccuracy: 50, timingDiscipline: 50, communicationDiscipline: 50, overall: 50 },
-    });
-    const pioPrompts = (pioDeck.widgetsById.role_briefing?.payload as { prompts: Array<{ id: string }> } | undefined)?.prompts ?? [];
-    expect(pioPrompts.map((prompt) => prompt.id)).toContain("p1_radio_rumor");
+    const radioEntries = (radioDeck.widgetsById.status_feed?.payload as { entries: Array<{ message: string }> } | undefined)?.entries ?? [];
+    const gmEntries = (gmDeck.widgetsById.status_feed?.payload as { entries: Array<{ message: string }> } | undefined)?.entries ?? [];
+    expect(radioEntries.some((entry) => /evacuate eastern ridge/i.test(entry.message))).toBe(true);
+    expect(gmEntries.some((entry) => /evacuate eastern ridge/i.test(entry.message))).toBe(true);
   });
 });

@@ -63,6 +63,7 @@ export type PlayerActionType =
   | "bushfire_set_roadblock"
   | "bushfire_create_firebreak"
   | "bushfire_issue_public_update"
+  | "bushfire_submit_status_update"
   | "bushfire_issue_forecast"
   | "bushfire_ack_prompt"
   | "gm_release_prompt";
@@ -155,8 +156,29 @@ export interface BushfireScenarioState {
   publicAnxiety: number;
   containment: number;
   waterBombsAvailable: number;
+  waterRemainingLiters: number;
   cells: BushfireCell[];
   publicAdvisories: string[];
+  statusFeedEntries: Array<{
+    id: string;
+    atEpochMs: number;
+    authorRole: IncidentRole;
+    authorName: string;
+    message: string;
+    kind: "radio" | "system";
+  }>;
+  listenerReactions: Array<{
+    id: string;
+    atEpochMs: number;
+    sentiment: "calm" | "worried" | "panic";
+    text: string;
+  }>;
+  firefrontVisualStage: string;
+  weatherState: {
+    conditionIcon: string;
+    severityEmoji: string;
+    gustBand: "low" | "moderate" | "severe";
+  };
   strategyNotes: string[];
   promptDeck: BushfirePromptCardState[];
 }
@@ -193,6 +215,7 @@ export type WidgetId =
   | "safety_telemetry"
   | "coordination_board"
   | "town_map"
+  | "status_feed"
   | "fire_ops_console"
   | "police_ops_console"
   | "public_info_console"
@@ -555,13 +578,19 @@ export interface BushfireMapPayload {
 
 export interface FireOpsPayload {
   waterBombsAvailable: number;
+  waterRemainingLiters: number;
+  phaseId: BushfirePhaseId;
+  firefrontStageImageId: string;
+  firefrontOverlayImageId?: string;
   burningZoneIds: string[];
+  updates: Array<{ id: string; atEpochMs: number; text: string; severity: "low" | "medium" | "high" }>;
   note: string;
 }
 
 export interface PoliceOpsPayload {
   evacuationZoneIds: string[];
   blockedZoneIds: string[];
+  updates: Array<{ id: string; atEpochMs: number; text: string; severity: "low" | "medium" | "high" }>;
   note: string;
 }
 
@@ -569,6 +598,31 @@ export interface PublicInfoPayload {
   advisories: string[];
   anxiety: number;
   cadenceHint: string;
+  listenerFeed: Array<{
+    id: string;
+    atEpochMs: number;
+    sentiment: "calm" | "worried" | "panic";
+    text: string;
+  }>;
+  canPublish: boolean;
+}
+
+export interface StatusFeedPayload {
+  entries: Array<{
+    id: string;
+    atEpochMs: number;
+    authorRole: IncidentRole;
+    authorName: string;
+    message: string;
+    kind: "radio" | "system";
+  }>;
+  listenerReactions: Array<{
+    id: string;
+    atEpochMs: number;
+    sentiment: "calm" | "worried" | "panic";
+    text: string;
+  }>;
+  readOnly: boolean;
 }
 
 export interface IncidentCommandPayload {
@@ -583,6 +637,9 @@ export interface WeatherOpsPayload {
   windStrength: BushfireScenarioState["windStrength"];
   windKph: number;
   forecastConfidence: number;
+  conditionIcon: string;
+  severityEmoji: string;
+  gustBand: "low" | "moderate" | "severe";
   nextShiftHint: string;
   recommendation: string;
   issuedForecasts: string[];
@@ -666,6 +723,7 @@ export interface WidgetPayloadMap {
   safety_telemetry: BombSafetyTelemetryPayload;
   coordination_board: BombCoordinationBoardPayload;
   town_map: BushfireMapPayload;
+  status_feed: StatusFeedPayload;
   fire_ops_console: FireOpsPayload;
   police_ops_console: PoliceOpsPayload;
   public_info_console: PublicInfoPayload;

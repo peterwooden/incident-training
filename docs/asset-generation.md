@@ -56,6 +56,16 @@ npm run asset:gen:openai -- \
   --out apps/web/src/game-ui/visuals/assets/generated/bomb-console.png
 ```
 
+Single ad-hoc image edit using a base asset:
+
+```bash
+npm run asset:gen:openai -- \
+  --prompt "advance this map to a crisis firefront with denser smoke" \
+  --base apps/web/src/game-ui/visuals/assets/generated/bushfire-town-base-v2.png \
+  --strength 0.6 \
+  --out apps/web/src/game-ui/visuals/assets/generated/firefront-crisis-high.png
+```
+
 ## Prompt presets
 
 Prompt source entries in `scripts/asset-prompts.json` support:
@@ -63,6 +73,9 @@ Prompt source entries in `scripts/asset-prompts.json` support:
 - `id`: stable build target ID
 - `prompt`: full canonical prompt (keep this complete to avoid regressions)
 - `out`: compiled image output path
+- `base`: optional source image path for image-to-image edits
+- `mask`: optional mask image path for selective edits
+- `strength`: optional edit strength hint (`0..1`)
 - optional generation options (`provider`, `model`, `size`, `quality`, `background`, `format`, `aspect`, `n`)
 
 Global defaults are under `defaults`.
@@ -70,9 +83,10 @@ Global defaults are under `defaults`.
 ## Recommended production workflow
 
 1. Edit only the target prompt in `scripts/asset-prompts.json`.
-2. Rebuild only that asset ID via `npm run asset:build -- --asset <id>`.
-3. Review widget visuals.
-4. Commit source prompt + compiled artifact together.
+2. If iterating from an existing asset, set `base` to that artifact and adjust `strength`.
+3. Rebuild only that asset ID via `npm run asset:build -- --asset <id>`.
+4. Review widget visuals.
+5. Commit source prompt + compiled artifact together.
 
 ## Notes on `llm` CLI (Simon Willison)
 

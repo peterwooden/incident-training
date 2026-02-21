@@ -134,6 +134,7 @@ async function run() {
       return resp.json();
     };
 
+    const mayorPlayer = await joinBushfire("Mayor", "Incident Controller");
     const firePlayer = await joinBushfire("Fire", "Fire Operations SME");
     const policePlayer = await joinBushfire("Police", "Police Operations SME");
     const radioPlayer = await joinBushfire("Radio", "Public Information Officer");
@@ -183,31 +184,25 @@ async function run() {
     });
     if (!releaseResp.ok) throw new Error(`prompt release failed: ${releaseResp.status}`);
 
-    const weatherStateResp = await fetch(
-      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(weatherPlayer.playerId)}`,
-    );
-    const weatherState = await weatherStateResp.json();
-    const weatherPrompts = weatherState.state.widgetDeck?.widgetsById?.role_briefing?.payload?.prompts ?? [];
+    const radioPublishResp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        playerId: radioPlayer.playerId,
+        actionType: "bushfire_submit_status_update",
+        widgetId: "public_info_console",
+        payload: { template: "Evacuate Eastern Ridge immediately." },
+      }),
+    });
+    if (!radioPublishResp.ok) throw new Error(`radio publish failed: ${radioPublishResp.status}`);
 
-    const fireStateResp = await fetch(
-      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(firePlayer.playerId)}`,
+    const mayorStateResp = await fetch(
+      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(mayorPlayer.playerId)}`,
     );
-    const fireState = await fireStateResp.json();
-    const firePrompts = fireState.state.widgetDeck?.widgetsById?.role_briefing?.payload?.prompts ?? [];
-
-    const radioStateResp = await fetch(
-      `${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/state?playerId=${encodeURIComponent(radioPlayer.playerId)}`,
-    );
-    const radioState = await radioStateResp.json();
-    const radioPrompts = radioState.state.widgetDeck?.widgetsById?.role_briefing?.payload?.prompts ?? [];
-
-    const visibleCount =
-      [weatherPrompts, firePrompts, radioPrompts]
-        .map((list) => list.some((prompt) => prompt.id === cardId))
-        .filter(Boolean)
-        .length;
-    if (visibleCount !== 1) {
-      throw new Error("expected released prompt to be private to exactly one role panel");
+    const mayorState = await mayorStateResp.json();
+    const statusEntries = mayorState.state.widgetDeck?.widgetsById?.status_feed?.payload?.entries ?? [];
+    if (!statusEntries.some((entry) => /Evacuate Eastern Ridge immediately/i.test(entry.message))) {
+      throw new Error("expected radio host update in shared status feed");
     }
 
     const phase4Resp = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(bushfireCode)}/action`, {

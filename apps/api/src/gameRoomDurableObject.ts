@@ -21,7 +21,7 @@ import type {
 import { ROOM_SCHEMA_VERSION } from "@incident/shared";
 import { createId, createSecret } from "./domain/ids";
 import { createSeededRandom, hashToSeed, snapshotCursor } from "./domain/rng";
-import { defaultRoleForMode, isRoleAllowed, requiredRolesForMode, rolesForMode } from "./domain/roles";
+import { isRoleAllowed, requiredRolesForMode, rolesForMode } from "./domain/roles";
 import { getModeEngine } from "./engine/registry";
 import type { ModeMutation } from "./engine/types";
 import { newTimelineEvent } from "./engine/helpers";
@@ -171,7 +171,7 @@ export class GameRoomDurableObject extends DurableObject {
     const gm: Player = {
       id: createId("player"),
       name: body.gmName,
-      role: defaultRoleForMode(body.mode),
+      role: "Observer",
       isGameMaster: true,
     };
 
@@ -277,7 +277,7 @@ export class GameRoomDurableObject extends DurableObject {
     }
 
     const required = requiredRolesForMode(this.roomState.mode);
-    const present = new Set(this.roomState.players.map((player) => player.role));
+    const present = new Set(this.roomState.players.filter((player) => !player.isGameMaster).map((player) => player.role));
     return required.filter((role) => !present.has(role));
   }
 
@@ -377,6 +377,11 @@ export class GameRoomDurableObject extends DurableObject {
       }
     } else if (action.type === "gm_release_prompt" && !player.isGameMaster) {
       return json({ error: "Only game master can release prompts" }, 403);
+    } else if (action.type === "bushfire_submit_status_update") {
+      if (player.role !== "Public Information Officer") {
+        return json({ error: "Only radio host can publish status feed updates" }, 403);
+      }
+      this.applyMutation(engine.onAction(this.roomState, action, now), now);
     } else {
       this.applyMutation(engine.onAction(this.roomState, action, now), now);
     }

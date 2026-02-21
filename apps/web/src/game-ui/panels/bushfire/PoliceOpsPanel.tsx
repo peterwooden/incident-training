@@ -41,6 +41,14 @@ export function PoliceOpsPanel({ payload }: PoliceOpsPanelProps) {
               ))}
             </div>
           </div>
+          <div className="lane-card">
+            <h4>Field Feed</h4>
+            {payload.updates.map((update) => (
+              <p key={update.id} className={`supporting severity-${update.severity}`}>
+                {update.text}
+              </p>
+            ))}
+          </div>
         </div>
       </LayeredScene>
     </section>

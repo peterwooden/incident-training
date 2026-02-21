@@ -81,12 +81,19 @@ export function PublicInfoPanel({
           <button
             type="button"
             className="beacon-button"
-            disabled={locked}
+            disabled={locked || !payload.canPublish}
             onClick={onPublish}
             aria-label="Publish advisory"
           >
             TX
           </button>
+        </div>
+        <div className="listener-feed">
+          {payload.listenerFeed.slice(-3).map((entry) => (
+            <p key={entry.id} className={`listener-entry sentiment-${entry.sentiment}`}>
+              {entry.text}
+            </p>
+          ))}
         </div>
       </LayeredScene>
     </section>

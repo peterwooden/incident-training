@@ -13,6 +13,7 @@ import type {
   IncidentCommandPayload,
   IncidentRole,
   MissionHudPayload,
+  StatusFeedPayload,
   PoliceOpsPayload,
   PlayerActionType,
   PublicInfoPayload,
@@ -33,6 +34,7 @@ import { IncidentCommandPanel } from "../panels/bushfire/IncidentCommandPanel";
 import { PoliceOpsPanel } from "../panels/bushfire/PoliceOpsPanel";
 import { PublicInfoPanel } from "../panels/bushfire/PublicInfoPanel";
 import { RoleBriefingPanel } from "../panels/bushfire/RoleBriefingPanel";
+import { StatusFeedPanel } from "../panels/bushfire/StatusFeedPanel";
 import { WeatherOpsPanel } from "../panels/bushfire/WeatherOpsPanel";
 import { DebriefReplayPanel } from "../gm/DebriefReplayPanel";
 import { GmFsmPanel } from "../gm/GmFsmPanel";
@@ -229,6 +231,8 @@ export function GameHudShell({
         );
       case "fire_ops_console":
         return <FireOpsPanel payload={widget.payload as FireOpsPayload} />;
+      case "status_feed":
+        return <StatusFeedPanel payload={widget.payload as StatusFeedPayload} />;
       case "police_ops_console":
         return <PoliceOpsPanel payload={widget.payload as PoliceOpsPayload} />;
       case "public_info_console":
@@ -237,7 +241,7 @@ export function GameHudShell({
             payload={widget.payload as PublicInfoPayload}
             advisoryDraft={advisoryDraft}
             onDraftChange={setAdvisoryDraft}
-            onPublish={() => onAction("bushfire_issue_public_update", "public_info_console", { template: advisoryDraft })}
+            onPublish={() => onAction("bushfire_submit_status_update", "public_info_console", { template: advisoryDraft })}
             locked={widget.locked.locked || state.status !== "running"}
           />
         );

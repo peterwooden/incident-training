@@ -49,6 +49,9 @@ export function WeatherOpsPanel({ payload, locked, onIssueForecast }: WeatherOps
           <text x={86} y={148} textAnchor="middle" className="weather-readout">
             {payload.windDirection} {payload.windKph}
           </text>
+          <text x={86} y={34} textAnchor="middle" className="weather-readout">
+            {payload.severityEmoji}
+          </text>
 
           <rect x={164} y={34} width={146} height={20} rx={8} className="weather-track" />
           <rect
@@ -61,6 +64,9 @@ export function WeatherOpsPanel({ payload, locked, onIssueForecast }: WeatherOps
           />
           <text x={172} y={49} className="weather-label">Forecast confidence</text>
           <text x={304} y={49} className="weather-value" textAnchor="end">{confidence}%</text>
+          <text x={164} y={66} className="weather-label">
+            {payload.conditionIcon} | gust {payload.gustBand}
+          </text>
 
           <text x={164} y={86} className="weather-note">{payload.nextShiftHint}</text>
           <text x={164} y={112} className="weather-note">{payload.recommendation}</text>

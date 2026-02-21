@@ -28,6 +28,9 @@ function printUsage(exitCode = 0) {
     "  --prompt <text>              Required in single mode",
     "  --out <file>                 Required in single mode",
     "  --n <count>                  Number of images (default: 1)",
+    "  --base <path>                Optional base image for image-to-image editing",
+    "  --mask <path>                Optional mask image (transparent pixels are editable)",
+    "  --strength <0..1>            Optional edit strength hint (provider-dependent)",
     "",
     "OpenAI options:",
     "  --model <id>                 Default: gpt-image-1",
@@ -185,24 +188,55 @@ async function generateViaOpenAI(config) {
   const baseUrl = (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "");
   const endpoint = `${baseUrl}/images/generations`;
 
-  const requestBody = {
-    model,
-    prompt: config.prompt,
-    n,
-    size,
-    quality,
-    background,
-    output_format: format,
-  };
+  const hasBaseImage = Boolean(config.base);
+  let response;
+  if (!hasBaseImage) {
+    const requestBody = {
+      model,
+      prompt: config.prompt,
+      n,
+      size,
+      quality,
+      background,
+      output_format: format,
+    };
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
-  });
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+  } else {
+    const editsEndpoint = `${baseUrl}/images/edits`;
+    const imageBytes = await readFile(path.resolve(String(config.base)));
+    const form = new FormData();
+    form.append("model", model);
+    form.append("prompt", config.prompt);
+    form.append("n", String(n));
+    form.append("size", size);
+    form.append("quality", quality);
+    form.append("background", background);
+    form.append("output_format", format);
+    if (config.strength !== undefined) {
+      form.append("strength", String(config.strength));
+    }
+    form.append("image", new Blob([imageBytes]), path.basename(String(config.base)));
+    if (config.mask) {
+      const maskBytes = await readFile(path.resolve(String(config.mask)));
+      form.append("mask", new Blob([maskBytes]), path.basename(String(config.mask)));
+    }
+
+    response = await fetch(editsEndpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: form,
+    });
+  }
 
   const payload = await parseJsonResponse(response);
   if (!response.ok) {
@@ -237,6 +271,9 @@ async function generateViaGemini(config) {
   const model = config.model ?? "gemini-2.5-flash-image";
   const aspect = config.aspect ?? "16:9";
   const n = toInt(config.n, 1);
+  if (config.base) {
+    throw new Error("Gemini provider currently does not support --base image edits in this compiler path.");
+  }
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
   const requestBody = {
@@ -424,6 +461,9 @@ async function compileSingle(args) {
     prompt: args.prompt,
     out: args.out,
     n: args.n,
+    base: args.base,
+    mask: args.mask,
+    strength: args.strength,
     model: args.model,
     size: args.size,
     quality: args.quality,
