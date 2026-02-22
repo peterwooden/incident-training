@@ -20,3 +20,11 @@ Welcome to the emergency response center for The Valley. It is the peak of a ver
 * To Mayor: The fire is now just 500 meters from the edge of town, and visibility is dropping due to heavy smoke. 
 ### Phase 4:
 * To Firefighter: The fire has now engulfed the town
+
+## Widgets
+1. Generic static map of the valley (everyone sees this - use the image asset generator system to make a nice map)
+2. Status page (everyone) - a text feed of updates which the radio host submits
+3. Weather status updates (meterologist only) - include text feed of updates, and also emojis/graphics for the current weather state
+4. Radio host widget (radio host only) - input box and button to submit updates to the status page. Also includes a feed of what listeners are saying.
+5. Police view (police only) - feed of text updates which police see (eg that there is road congestion). Also includes action buttons.
+6. Firefighter view (firefighter only) - feed of text updates about the fire front, mostly represented visually with different images of the map with fire moving across it over time. Also includes action buttons, and amount of water remaining in trucks.
